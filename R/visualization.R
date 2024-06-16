@@ -155,7 +155,6 @@ plot_sol_space <- function(sol_space) {
         
         df <- rbind(df,
                     data.frame(
-                        met = met,
                         cs = community_size_dist,
                         x = 1:length(community_size_dist),
                         y = rep(j, length(community_size_dist))
