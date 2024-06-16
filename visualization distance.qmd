@@ -1,0 +1,199 @@
+---
+title: "community toolkit: enhanced visualization"
+format: pdf
+editor: visual
+---
+
+## objective
+
+Large networks with a number of communities may be difficult to
+visualize, as all communities tend to overlap., even with custom layout
+such as `layout.fruchterman.reingold()`.
+
+here we experiment two strategies to obtain clearly separated
+communities
+
+-   The co-occurence matrix D offers a clever way to calculate a
+    distance between vertices and communities, than can be fed into a
+    layout function.
+
+-   Similarly it can be derived by CCD using uncertainty coefficient
+    $\gamma$
+
+-   Similarly it can be derived by any membership vector
+
+## Example
+
+```{r}
+#| echo: false
+library(igraph)
+library(aricode)
+library(CCD)
+library(tidyverse)
+library(communities)
+```
+
+```{r}
+
+g <- igraph::read.graph('football.gml', format = 'gml')
+V(g)$name = 1:vcount(g)
+E(g)$weight <- 1
+lo = layout.fruchterman.reingold(g )
+plot(g, vertex.label = NA, layout = lo)
+
+```
+
+# standard community visualization
+
+```{r}
+comms <- cluster_louvain(g)
+lo = layout.fruchterman.reingold(g )
+plot(comms, g, vertex.label = NA, layout = lo)
+```
+
+## improve visualization with distance based on co-occurrence
+
+for this we need a clustering method that produces variability. Louvain
+is ideal.\
+first repeat clustering 100 times, and save results in M\
+then calculate co-occurrence D (with $dij \in (0,1)$)
+
+```{r}
+
+M <- CCD::find_communities_repeated(
+            g,
+            n_trials = 100,
+            method = 'LV',
+            resolution = 0.5 )
+# calculate co-occurrence:
+# dij = 1 within the same community
+# dij = 0 between nodes in different communities
+D <- CCD::normalized_co_occurrence(M)
+
+#eps is the distance between community members
+eps <- .05
+
+#calculate dist
+comm_distance <- function(g, D, eps) {
+  df <- as_long_data_frame(g) %>% select(from, to, weight)
+  df$dist <- 0
+  for (i in 1:nrow(df)) {
+    df$dist[i] <- eps + (1-eps)* df$w[i] * D[df$from[i],df$to[i]]
+  } 
+  return(df$dist)
+}
+
+ 
+lo = layout.fruchterman.reingold(g, 
+                                 weights = comm_distance(g, D, eps))
+
+plot(comms, g, vertex.label = NA, layout = lo)
+```
+
+```{r}
+
+M <- CCD::find_communities_repeated(
+            g,
+            n_trials = 100,
+            method = 'LV',
+            resolution = 0.5 )
+# calculate co-occurrence:
+# dij = 1 within the same community
+# dij = 0 between nodes in different communities
+D <- CCD::normalized_co_occurrence(M)
+
+#eps is the distance between community members
+eps <- .05
+
+#calculate dist
+comm_distance <- function(g, D, eps) {
+  df <- as_long_data_frame(g) %>% select(from, to, weight)
+  df$dist <- 0
+  for (i in 1:nrow(df)) {
+    df$dist[i] <- eps + (1-eps)* df$w[i] * D[df$from[i],df$to[i]]
+  } 
+  return(df$dist)
+}
+
+
+
+ 
+lo = layout.fruchterman.reingold(g, 
+                                 weights = comm_distance(g, D, eps))
+
+plot(comms, g, vertex.label = NA, layout = lo)
+ 
+
+## community distance from membership
+
+
+```
+
+given any membership vector, we can calculate a distance that spreads
+out the communities
+
+```{r}
+comm_distance <- function(g, membership, eps=.02) {
+  df <- as_long_data_frame(g) %>% select(from, to, weight)
+  df$dist <- 0
+  for (i in 1:nrow(df)) {
+    same_comm = (membership[df$from[i]] == membership[df$to[i]])
+    df$dist[i] <- eps + (1-eps)* df$w[i] * D[df$from[i],df$to[i]]
+  } 
+  return(df$dist)
+}
+```
+
+```{r}
+comms <- infomap.community(g)
+lo = layout.fruchterman.reingold(g,
+                                 weights = E(g)$weight)
+plot(g, 
+     layout = lo, 
+     vertex.label = NA,
+     vertex.size = 5,
+     vertex.color = comms$membership, 
+     edge.color = 'lightgray')
+
+```
+
+```{r}
+lo = layout.fruchterman.reingold(g,
+            weights = comm_distance(g, 
+                                    comms$membership, 
+                                    eps=.1))
+plot(g, 
+     layout = lo, 
+     vertex.label = NA,
+     vertex.size = 5,
+     vertex.color = comms$membership, 
+     edge.color = 'lightgray')
+```
+
+## community distance from CCD
+
+given a CCD membership matrix, composed of labels and gamma
+coefficients, we can calculate a distance that spreads out the
+communities and puts the outliers between communities
+
+```{r}
+comm_gamma_distance <- function(g, membership, gamma,eps=.01) {
+  df <- as_long_data_frame(g) %>% select(from, to, weight)
+  df$dist <- 0 
+  for (i in 1:nrow(df)) { 
+    same_comm = (membership[df$from[i]]== membership[df$to[i]]) 
+    df$dist[i] <- eps + (1-eps)*df$w[i] * gamma[i] * D[df$from[i],df$to[i]] 
+    } 
+  return(df$dist) 
+}
+
+
+```
+
+```{r}
+V(g)$name <- paste0("n_", 1:vcount(g))
+E(g)$w <- 1.0
+V(g)$community <- cluster_infomap(g)$membership
+gc <-communities::make_community_network(g)
+plot(gc)
+```

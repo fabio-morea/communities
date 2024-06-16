@@ -1,0 +1,69 @@
+---
+title: "How to use 'communities' package" 
+output: pdf
+---
+
+# scope
+
+```{r libraries, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(igraph)
+library(communities)
+```
+
+
+# examples
+## create a ring of cliques
+
+```{r sample1, message=FALSE, warning=FALSE}
+g <- communities::make_ring_of_cliques(num_cliques = 4,
+                                       clique_size = 6, 
+                                       add_center = F, 
+                                       add_bridges = T)
+plot(g)
+```
+
+
+## explore solutions space
+```{r}
+sol_space <- communities::solutions_space(g, tmax = 200, met = "LV", confidence = .1, param = 1)
+M <- sol_space$M 
+df <- sol_space$data
+#bp <- sol_space$bayes_post;bp
+trials <- sol_space$data %>% select(a,b) %>% head(1) %>%  sum() %>% -2
+
+print(paste("Trials = ", trials))
+
+## TO DO add a strategy to exit before tmax
+
+
+```
+
+  
+
+```{r}
+g <- communities::make_ring_of_cliques(num_cliques = 4,
+                                       clique_size = 6, 
+                                       add_center = F, 
+                                       add_bridges = T)
+ssp <- communities::solutions_space(g, tmax = 100, met = "LV", param = 1, confidence = .99) 
+plot_sol_space(ssp)
+ssp$data
+```
+
+```{r}
+communities::solutions_space(g, tmax = 100, met = "WT", param = 3, confidence = 0.90) %>% 
+  plot_sol_space()
+ 
+```
+
+```{r}
+communities::solutions_space(g, tmax = 200, met = "LV") %>% 
+  plot_sol_space()
+```
+```{r}
+plot(g)
+communities::solutions_space(g, tmax = 100, met = "WT") %>% 
+  plot_sol_space()
+```
+
