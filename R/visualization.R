@@ -162,7 +162,8 @@ plot_sol_space <- function(sol_space) {
     }
     
     
-    pl3 <- ggplot(df, aes(x = x, y = y)) +
+    pl3 <- sol_space$data %>%
+        ggplot( aes(x = x, y = y)) +
         geom_point(aes(
             size = cs,
             color = if_else(cs == 1, "single", "comm"),
