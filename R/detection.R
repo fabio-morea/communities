@@ -5,9 +5,9 @@
 solutions_space <-
     function(g,
              tmax,
-             met='WT',
+             met='IM',
+             comp_method='adjusted.rand'
              confidence = .95,
-             exit = 3,
              param = NA) {
         M <- matrix(NA, nrow = vcount(g), ncol = 1)
         S <- matrix(0.0,  nrow = tmax, ncol = tmax)
@@ -38,7 +38,7 @@ solutions_space <-
                 for (i in 1:ns) {
                     sim_score <- igraph::compare(membership[match(V(g)$name, V(gs)$name)],
                                         M[, i],
-                                        method = "nmi")
+                                        method = comp_method)
                     if (sim_score == 1) {
                         #we already have this solution
                         nn[i] <- nn[i] + 1
