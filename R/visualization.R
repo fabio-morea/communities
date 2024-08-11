@@ -141,7 +141,7 @@ plot_sol_space <- function(sol_space) {
         theme_minimal() 
     
     
-    nn <- nrow(sol_space$data)
+    nn <- nrow(sol_space$data)-1
     df <- data.frame()
     for (j in 1:nn) {
         if (nn == 1) {
@@ -161,8 +161,8 @@ plot_sol_space <- function(sol_space) {
                     ))
     }
     
-    
-    pl3 <- sol_space$data %>%
+    print(sample(df))
+    pl3 <- df %>%
         ggplot( aes(x = x, y = y)) +
         geom_point(aes(
             size = cs,

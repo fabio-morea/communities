@@ -17,7 +17,7 @@ solutions_space <-
             gs <- igraph::permute(g, sample(vcount(g)))
             comms <- switch(
                 met,
-                "IM" = igraph::infomap.community(gs, nb.trials = param),
+                "IM" = igraph::infomap.community(gs),#nb.trials = param
                 "WT" = igraph::walktrap.community(gs, steps = param),
                 "LV" = igraph::cluster_louvain(gs, resolution = param),
                 "LD" = igraph::cluster_leiden(gs, resolution = param),
