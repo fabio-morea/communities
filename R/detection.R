@@ -8,7 +8,7 @@ solutions_space <-
              met='IM',
              comp_method='adjusted.rand',
              confidence = .95,
-             param = NA) {
+             resolution = 1.0, IM.nb.trials = 10, WT.steps=3) {
         M <- matrix(NA, nrow = vcount(g), ncol = 1)
         S <- matrix(0.0,  nrow = tmax, ncol = tmax)
         ns <- 0
@@ -17,14 +17,16 @@ solutions_space <-
             gs <- igraph::permute(g, sample(vcount(g)))
             comms <- switch(
                 met,
-                "IM" = igraph::infomap.community(gs),#nb.trials = param
-                "WT" = igraph::walktrap.community(gs, steps = param),
-                "LV" = igraph::cluster_louvain(gs, resolution = param),
-                "LD" = igraph::cluster_leiden(gs, resolution = param),
+                "IM" = igraph::infomap.community(gs, nb.trials=IM.nb.trials),  
+                "WT" = igraph::walktrap.community(gs, steps = WT.steps),
+                "LV" = igraph::cluster_louvain(gs, resolution = resolution),
+                "LD" = igraph::cluster_leiden(gs, resolution_parameter = resolution),
                 "LP" = igraph::label.propagation.community(gs)
             )
             
             membership <- comms$membership
+            
+            
             
             if (t == 1) {
                 # first solution found
@@ -34,11 +36,15 @@ solutions_space <-
                 bayes_post <- data.frame(a = rep(2, 2), b = rep(2, 2))
 
             } else {
+                
                 # check if already esists
                 for (i in 1:ns) {
-                    sim_score <- igraph::compare(membership[match(V(g)$name, V(gs)$name)],
+                    sim_score <- igraph::compare(
+                        membership[match(V(g)$name, V(gs)$name)],
                                         M[, i],
-                                        method = comp_method)
+                                        method = comp_method) %>%
+                        round(6)
+                    
                     if (sim_score == 1) {
                         #we already have this solution
                         nn[i] <- nn[i] + 1
@@ -47,55 +53,62 @@ solutions_space <-
                         break
                     }
                 }#end for
+
                 if (sim_score < 1) {
+                    
                     #it's a new solution
                     ns <- ns + 1
-                    M <-
-                        cbind(M, membership[match(V(g)$name, V(gs)$name)])
+                    M <- cbind(M, membership[match(V(g)$name, V(gs)$name)])
                     nn <- c(nn, 1)
+                    
+                    # add a new empty row 
+                    bayes_post <- rbind(bayes_post, data.frame(a = NA, b = NA))
                     #update
                     bayes_post$a[ns] <- 2
                     bayes_post$b <- t - bayes_post$a + 2
-                    #add a new distribution to test unseen solutions
-                    bayes_post <- rbind(bayes_post, data.frame(a = 1, b = t + 1))
+                 
                 }
-                bayes_post$b <- t - bayes_post$a + 2
-                s = nrow(bayes_post)
+                  
                 results <- bayes_post %>%    mutate(lower = NA, upper = NA, median = NA)
-                
+                s = nrow(bayes_post)
 
-                
+                # confidence intervals
+                x = (1-confidence)/2
                 for (i in 1:s) {
-                    results$upper[i] <- qbeta(confidence, bayes_post$a[i], bayes_post$b[i])
-                    results$lower[i] <-qbeta(1 - confidence, bayes_post$a[i], bayes_post$b[i])
+                    results$upper[i] <- qbeta(1-x,  bayes_post$a[i], bayes_post$b[i])
+                    results$lower[i] <- qbeta(x  ,    bayes_post$a[i], bayes_post$b[i]) 
                     results$median[i] <-qbeta(0.5, bayes_post$a[i], bayes_post$b[i])
                 }
                 results <- results %>% arrange(-median)
-                results$group[1] <- 1
-                for (i in 2:s) {
-                    gap = results$lower[i] < results$upper[i - 1]
-                    results$group[i] <- if_else(gap,
-                                                results$group[i - 1] + 1,
-                                                results$group[i - 1])
-                }
+                
                 
             }#end if
-            
-            ## 
-            ## TO DO exit for loop before tmax if results are (almost) unchanged 
-            ## 
+
         }#end for
         
+        
+        
+        results <- results %>% filter(a > 0) #remove empty line
         results$y <- 1:nrow(results)
         results$id <- paste0("s", results$y)
         
-        results$id[results$y  == nrow(results)] <- "New"
-        results$group[results$id == "New"] <-results$group[max(results$group)] + 1
+        # to add: check for non-valid communities k=1, k=n or disconnected
+        # 
         
-        results$group <- factor(results$group)
-        
-        
-        results <- results %>% mutate(cumsum = cumsum(median))  %>%
+        results$group <- NA
+        grp<-1
+        results$group[1] <- grp
+        for (i in 2:nrow(results)) {
+
+            gap = results$lower[i-1] > results$upper[i ]
+            if(gap){grp<-grp+1}
+            results$group[i]<-grp
+        }
+
+        results <- results %>% 
+            mutate(group = factor(group))%>%
+            mutate(cumsum = cumsum(median))  %>%
+            filter(a>0)%>%
             arrange(y)
         
         return(list(M = M[, order(-nn)], data = results))

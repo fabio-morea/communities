@@ -101,7 +101,6 @@ plot_sol_space <- function(sol_space) {
     
 
     pl1 <- sol_space$data %>%
-        filter(id !=  "New") %>%
         ggplot(aes(x = y)) +
         geom_line(aes(y = cumsum), color = "black") +
         geom_point(aes(y = cumsum,  color = group), size = 3) +
@@ -141,7 +140,7 @@ plot_sol_space <- function(sol_space) {
         theme_minimal() 
     
     
-    nn <- nrow(sol_space$data)-1
+    nn <- nrow(sol_space$data)
     df <- data.frame()
     for (j in 1:nn) {
         if (nn == 1) {

@@ -26,16 +26,10 @@ plot(g)
 
 ## explore solutions space
 ```{r}
-sol_space <- communities::solutions_space(g, tmax = 200, met = "LV", confidence = .1, param = 1)
+sol_space <- communities::solutions_space(g, tmax = 200, met = "LV", confidence = .95, resolution = 1.0)
 M <- sol_space$M 
 df <- sol_space$data
-#bp <- sol_space$bayes_post;bp
-trials <- sol_space$data %>% select(a,b) %>% head(1) %>%  sum() %>% -2
-
-print(paste("Trials = ", trials))
-
-## TO DO add a strategy to exit before tmax
-
+plot_sol_space(sol_space)
 
 ```
 
@@ -46,21 +40,36 @@ g <- communities::make_ring_of_cliques(num_cliques = 4,
                                        clique_size = 6, 
                                        add_center = F, 
                                        add_bridges = T)
-ssp <- communities::solutions_space(g, tmax = 100, met = "LV", param = 1, confidence = .99) 
-plot_sol_space(ssp)
+ssp <- communities::solutions_space(g, tmax = 100, met = "LV", resolution = 1, confidence = .95) 
 ssp$data
+ssp$M
+plot_sol_space(ssp)
 ```
 
+
 ```{r}
-communities::solutions_space(g, tmax = 100, met = "WT", param = 3, confidence = 0.90) %>% 
+communities::solutions_space(g, tmax = 100, met = "WT",  confidence = 0.95) %>% 
   plot_sol_space()
  
 ```
 
 ```{r}
-communities::solutions_space(g, tmax = 200, met = "LV") %>% 
-  plot_sol_space()
+ssp1 <- communities::solutions_space(g, tmax = 20, met = "LD", resolution = 0.9)
+ssp2 <- communities::solutions_space(g, tmax = 20, met = "LD", resolution = 0.9, comp_method = 'nmi') 
+
+ssp1$data
+ssp2$data
+
+
+ssp$M
+ssp$data
+plot_sol_space(ssp)
+
+
+ 
+ 
 ```
+
 ```{r}
 plot(g)
 communities::solutions_space(g, tmax = 100, met = "WT") %>% 
