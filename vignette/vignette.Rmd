@@ -29,9 +29,8 @@ plot(g)
 sol_space <- communities::solutions_space(g, tmax = 100, met = "LV", confidence = .9, resolution = 1.0, comp_method = "ami")
 M <- sol_space$M 
 df <- sol_space$data
-print(M)
-print(df)
 plot_sol_space(sol_space)
+
 
 ```
 
@@ -74,9 +73,10 @@ communities::solutions_space(g, tmax = 100, met = "WT", comp_method = "ami") %>%
 ```
 
 ```{r}
-random_graph <- erdos.renyi.game(100, p=0.8, type = "gnp")
-random_ssp <- communities::solutions_space(random_graph, 
-                                           tmax = 100, met = "LD", resolution = .99, comp_method = "ari")
+random_graph <- erdos.renyi.game(100, p=0.01, type = "gnp")
+cluster_louvain(random_graph)
+random_ssp <- communities::solutions_space(random_graph,tmax = 1, met = "IM", resolution = .99, comp_method = "ari")
+
 random_ssp$data
 random_ssp$M
 plot_sol_space(random_ssp)

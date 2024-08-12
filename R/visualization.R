@@ -175,9 +175,13 @@ plot_sol_space <- function(sol_space) {
         labs(x = "community", y = "")
     
     
-        
+    pl4 <-  heatmap(sol_space$simil,
+            Rowv = NA, 
+            Colv = NA, 
+            col = colorRampPalette(c("white", "darkgreen"))(256), 
+            main = "Heatmap of ARI Similarity Matrix") 
     
     
     
-    return(list(pl1 = pl1, pl2 = pl2, pl3 = pl3))
+    return(list(pl1 = pl1, pl2 = pl2, pl3 = pl3, pl4 = pl4))
 }

@@ -112,5 +112,17 @@ solutions_space <-
             filter(a>0)%>%
             arrange(y)
         
-        return(list(M = M[, order(-nn)], data = results))
+        #calculate similarity matrix
+        similarity_matrix <- matrix(NA, nrow = ns, ncol = ns)
+        for (i in 1:ns) {
+            for (j in i:ns) {
+                similarity_score <- aricode::ARI(M[, i], M[, j])
+                similarity_matrix[i, j] <- similarity_score
+                similarity_matrix[j, i] <- similarity_score
+            }
+        }
+        rownames(similarity_matrix) <- results$id
+        colnames(similarity_matrix) <- results$id
+        
+        return(list(M = M[, order(-nn)], data = results, simil = similarity_matrix))
     }
