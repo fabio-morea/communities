@@ -17,7 +17,7 @@ library(communities)
 
 ```{r sample1, message=FALSE, warning=FALSE}
 g <- communities::make_ring_of_cliques(num_cliques = 4,
-                                       clique_size = 6, 
+                                       clique_size = 16, 
                                        add_center = F, 
                                        add_bridges = T)
 plot(g)
@@ -26,46 +26,37 @@ plot(g)
 
 ## explore solutions space
 ```{r}
-sol_space <- communities::solutions_space(g, tmax = 500, met = "LV", confidence = .9, resolution = 1.0, comp_method = "ami")
+sol_space <- communities::solutions_space(g, tmax = 100, met = "LV", confidence = 0.95,  comp_method = "ami")
 M <- sol_space$M 
 df <- sol_space$data
 sm <- sol_space$simil
 plot_sol_space(sol_space)
-   simil_df <- as.data.frame(sol_space$simil)
-    simil_df$Partition1 <- rownames(simil_df)
-    simil_long <- simil_df %>%
-        pivot_longer(cols = -Partition1, names_to = "Partition2", values_to = "s")
-    
-    simil_long <- simil_long %>%
-        mutate(Partition1 = factor(Partition1, levels = unique(Partition1)),
-               Partition2 = factor(Partition2, levels = unique(Partition2)))
-    
-    pl4 <-  ggplot(simil_long, aes(x = Partition2, y = Partition1, fill = s)) +
-        geom_tile() +
-        scale_fill_gradient(low = "white", high = "darkgreen") +
-        labs(x = "solutions", y = "solutions", title = "Heatmap of Similarity Matrix") +
-        theme_minimal() +
-        theme(axis.text.x = element_text(angle = 90, hjust = 1),
-              axis.text.y = element_text(hjust = 1))+ theme(aspect.ratio = 1.0)
 
+sim_score_solutions <- rowMeans(sol_space$simil, na.rm = T)
+print(sim_score_solutions)
+
+overall_similarity<-mean(sol_space$simil, na.rm = T)
+print(paste("Mean similarity score = ", overall_similarity))
 ```
+
+ 
 
   
 
 ```{r}
 g <- communities::make_ring_of_cliques(num_cliques = 4,
-                                       clique_size = 6, 
-                                       add_center = F, 
-                                       add_bridges = T)
-ssp <- communities::solutions_space(g, tmax = 100, met = "LV", resolution = 1, confidence = .95) 
+                                       clique_size = 10, 
+                                       add_center = T, 
+                                       add_bridges = F)
+ssp <- communities::solutions_space(g, tmax = 100, met = "LP", resolution = 1, confidence = .95) 
 ssp$data
-ssp$M
+#ssp$M
 plot_sol_space(ssp)
 ```
 
 
 ```{r}
-communities::solutions_space(g, tmax = 100, met = "WT",  comp_method = "ami", confidence = 0.95) %>% 
+communities::solutions_space(g, tmax = 100, met = "WT",  comp_method = "ari", confidence = 0.95) %>% 
   plot_sol_space()
 
   
@@ -84,19 +75,71 @@ ssp2$data
 
 ```{r}
 plot(g)
-communities::solutions_space(g, tmax = 100, met = "WT", comp_method = "ami") %>% plot_sol_space()
- 
+ssp<-communities::solutions_space(g, tmax = 100, met = "WT", comp_method = "ami") 
+plot_sol_space(ssp)
+sim_score_solutions <- rowMeans(ssp$simil, na.rm = T)
+print(sim_score_solutions)
+
+overall_similarity<-mean(ssp$simil, na.rm = T)
+print(paste("Mean similarity score = ", overall_similarity))
+
 ```
 
 ```{r}
-random_graph <- erdos.renyi.game(100, p=0.01, type = "gnp")
-cluster_louvain(random_graph)
-random_ssp <- communities::solutions_space(random_graph,tmax = 1, met = "IM", resolution = .99, comp_method = "ari")
+random_graph <- erdos.renyi.game(100, p=0.5, type = "gnp")
+V(random_graph)$name <- 1:vcount(random_graph)
 
-random_ssp$data
-random_ssp$M
+
+random_ssp <- communities::solutions_space(random_graph, tmax = 10, met = "LV", 
+                                           comp_method = "ami", confidence = .9)
+#random_ssp$data
+#random_ssp$M
+ 
 plot_sol_space(random_ssp)
+
+sim_score_solutions <- rowMeans(random_ssp$simil, na.rm = T)
+print(sim_score_solutions)
+
+overall_similarity<-mean(random_ssp$simil, na.rm = T)
+print(paste("Mean similarity score = ", overall_similarity))
 
 
 ```
+```{r}
+
+bayesian_update_1 <- function(prior, i){
+    posterior <- prior
+    # n increases by 1, hence b increases by 1 for all
+    posterior$b <- prior$b + 1
+    # except for the i-th element 
+    posterior$b[i] <- prior$b[i]  
+    
+    # k increases by 1 only for the ith element
+    posterior$a <- prior$a
+    posterior$a[i] <- posterior$a[i] + 1  
+    
+    return(posterior)
+}
+
+bayesian_new_1 <- function(prior){
+    n = prior$a[1] + prior$b[1]-2
+    print(n)
+    posterior <- rbind(prior, data.frame(a = 2, b = n))
+    return(posterior)
+}
+
+prior <- data.frame(a = 1, b = 1) # no trials, no info
+posterior <- bayesian_update_1(prior, i=1)
+
+i=1
+posterior <- bayesian_update_1(posterior, i)
+
+posterior <- bayesian_new_1(posterior)
+
+i=4
+posterior <- bayesian_update_1(posterior, i)
+
+posterior <- bayesian_new_1(posterior)
+```
+ 
 

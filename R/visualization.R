@@ -111,7 +111,7 @@ plot_sol_space <- function(sol_space) {
         theme_light()
     
     pl2 <- sol_space$data %>%
-        ggplot(aes(y = y)) +
+        ggplot(aes(y = id)) +
         geom_rect(
             fill = "gray",
             aes(
@@ -160,7 +160,6 @@ plot_sol_space <- function(sol_space) {
                     ))
     }
     
-    print(sample(df))
     pl3 <- df %>%
         ggplot( aes(x = x, y = y)) +
         geom_point(aes(
@@ -172,7 +171,7 @@ plot_sol_space <- function(sol_space) {
         scale_shape_manual(values = c(1, 18)) +
         
         theme_minimal() +
-        labs(x = "community", y = "")
+        labs(x = "community", solution = "")
     
     #heatmap
     #
@@ -187,13 +186,13 @@ plot_sol_space <- function(sol_space) {
     
     pl4 <-  ggplot(simil_long, aes(x = Partition2, y = Partition1, fill = similarity)) +
         geom_tile() +
-        scale_fill_gradient(low = "white", high = "darkgreen") +
+        scale_fill_gradient(low = "white",  high = "darkgreen", limits = c(0, 1)) +
         labs(x = "solutions", y = "solutions", title = "Heatmap of Similarity Matrix") +
         theme_minimal() +
         theme(axis.text.x = element_text(angle = 90, hjust = 1),
               axis.text.y = element_text(hjust = 1))+ theme(aspect.ratio = 1.0)
     
-    
+ 
     
     return(list(pl1 = pl1, pl2 = pl2, pl3 = pl3, pl4 = pl4))
 }

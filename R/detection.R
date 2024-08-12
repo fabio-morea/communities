@@ -1,4 +1,23 @@
 
+bayesian_update_1 <- function(prior, i){
+    posterior <- prior
+    # n increases by 1, hence b increases by 1 for all
+    posterior$b <- prior$b + 1
+    # except for the i-th element 
+    posterior$b[i] <- prior$b[i]  
+    
+    # k increases by 1 only for the ith element
+    posterior$a <- prior$a
+    posterior$a[i] <- posterior$a[i] + 1  
+    
+    return(posterior)
+}
+
+bayesian_new_1 <- function(prior){
+    n = prior$a[1] + prior$b[1]-2
+    posterior <- rbind(prior, data.frame(a = 2, b = n))
+    return(posterior)
+}
 
 
 #' @export
@@ -11,8 +30,10 @@ solutions_space <-
              resolution = 1.0, IM.nb.trials = 10, WT.steps=3) {
         M <- matrix(NA, nrow = vcount(g), ncol = 1)
         S <- matrix(0.0,  nrow = tmax, ncol = tmax)
-        ns <- 0
-        nn <- c()
+        ns <- 0   
+
+        prior <- data.frame(a = 1, b = 1) # no trials, no info
+        
         for (t in 1:tmax) {
             gs <- igraph::permute(g, sample(vcount(g)))
             comms <- switch(
@@ -32,12 +53,11 @@ solutions_space <-
                 # first solution found
                 M[, 1] <- membership[match(V(g)$name, V(gs)$name)]
                 ns <- 1
-                nn <- c(1)
-                bayes_post <- data.frame(a = 2, b = 2)
+                posterior <- bayesian_update_1(prior, i=1)
 
             } else {
                 
-                # check if already esists
+                # check if already exists
                 for (i in 1:ns) {
                     sim_score <- switch(
                         comp_method,
@@ -47,9 +67,7 @@ solutions_space <-
                     
                     if (sim_score == 1) {
                         #we already have this solution
-                        nn[i] <- nn[i] + 1
-                        bayes_post$a[i] <- bayes_post$a[i] + 1
-                        bayes_post$b <- t - bayes_post$a + 2
+                        posterior <- bayesian_update_1(posterior, i)
                         break
                     }
                 }#end for
@@ -59,25 +77,23 @@ solutions_space <-
                     #it's a new solution
                     ns <- ns + 1
                     M <- cbind(M, membership[match(V(g)$name, V(gs)$name)])
-                    nn <- c(nn, 1)
-                    
-                    # add a new empty row 
-                    bayes_post <- rbind(bayes_post, data.frame(a = NA, b = NA))
-                    #update
-                    bayes_post$a[ns] <- 2
-                    bayes_post$b <- t - bayes_post$a + 2
+
+                    # add a new solution
+                    posterior <- bayesian_new_1(posterior)
+
                  
                 }
                   
-                results <- bayes_post %>%    mutate(lower = NA, upper = NA, median = NA)
-                s = nrow(bayes_post)
+                results <- posterior %>%  
+                    mutate(lower = NA, upper = NA, median = NA)
+                s = nrow(results)
 
                 # confidence intervals
                 x = (1-confidence)/2
                 for (i in 1:s) {
-                    results$upper[i] <- qbeta(1-x,  bayes_post$a[i], bayes_post$b[i])
-                    results$lower[i] <- qbeta(x  ,    bayes_post$a[i], bayes_post$b[i]) 
-                    results$median[i] <-qbeta(0.5, bayes_post$a[i], bayes_post$b[i])
+                    results$upper[i] <- qbeta(1-x, posterior$a[i], posterior$b[i])
+                    results$lower[i] <- qbeta(x  , posterior$a[i], posterior$b[i]) 
+                    results$median[i] <-qbeta(0.5, posterior$a[i], posterior$b[i])
                 }
                 results <- results %>% arrange(-median)
                 
@@ -116,13 +132,15 @@ solutions_space <-
         similarity_matrix <- matrix(NA, nrow = ns, ncol = ns)
         for (i in 1:ns) {
             for (j in i:ns) {
+                if (i==j){next}
                 similarity_score <- aricode::ARI(M[, i], M[, j])
                 similarity_matrix[i, j] <- similarity_score
                 similarity_matrix[j, i] <- similarity_score
             }
         }
+        
         rownames(similarity_matrix) <- results$id
         colnames(similarity_matrix) <- results$id
         
-        return(list(M = M[, order(-nn)], data = results, simil = similarity_matrix))
+        return(list(M = M[, order(-posterior$a)], data = results, simil = similarity_matrix))
     }
