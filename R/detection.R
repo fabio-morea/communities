@@ -33,7 +33,7 @@ solutions_space <-
                 M[, 1] <- membership[match(V(g)$name, V(gs)$name)]
                 ns <- 1
                 nn <- c(1)
-                bayes_post <- data.frame(a = rep(2, 2), b = rep(2, 2))
+                bayes_post <- data.frame(a = 2, b = 2)
 
             } else {
                 
@@ -43,8 +43,7 @@ solutions_space <-
                         comp_method,
                         "ari" = aricode::ARI(membership[match(V(g)$name, V(gs)$name)],M[, i]),
                         "ami" = aricode::AMI(membership[match(V(g)$name, V(gs)$name)],M[, i]),
-                        "Invalid selection") %>% 
-                        round(6)
+                        "Invalid selection")  
                     
                     if (sim_score == 1) {
                         #we already have this solution
@@ -99,11 +98,12 @@ solutions_space <-
         results$group <- NA
         grp<-1
         results$group[1] <- grp
-        for (i in 2:nrow(results)) {
-
-            gap = results$lower[i-1] > results$upper[i ]
-            if(gap){grp<-grp+1}
-            results$group[i]<-grp
+        if (ns > 1){
+            for (i in 2:ns) {
+                gap = results$lower[i - 1] > results$upper[i]
+                if (gap) {grp <- grp + 1}
+                results$group[i] <- grp
+            }
         }
 
         results <- results %>% 

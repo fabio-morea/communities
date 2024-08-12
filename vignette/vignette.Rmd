@@ -26,9 +26,11 @@ plot(g)
 
 ## explore solutions space
 ```{r}
-sol_space <- communities::solutions_space(g, tmax = 200, met = "LV", confidence = .95, resolution = 1.0)
+sol_space <- communities::solutions_space(g, tmax = 100, met = "LV", confidence = .9, resolution = 1.0, comp_method = "ami")
 M <- sol_space$M 
 df <- sol_space$data
+print(M)
+print(df)
 plot_sol_space(sol_space)
 
 ```
@@ -48,38 +50,37 @@ plot_sol_space(ssp)
 
 
 ```{r}
-communities::solutions_space(g, tmax = 100, met = "WT",  confidence = 0.95) %>% 
+communities::solutions_space(g, tmax = 100, met = "WT",  comp_method = "ami", confidence = 0.95) %>% 
   plot_sol_space()
 
-aricode::AMI(M[, 1],M[, 3])%>%round(6)
-
-sim_score <- switch(
-                        comp_method,
-                        "ari" = aricode::ARI(membership[match(V(g)$name, V(gs)$name)],M[, i]),
-                        "ami" = aricode::AMI(membership[match(V(g)$name, V(gs)$name)],M[, i])
-                    ) %>% round(6)
+  
 
 ```
 
 ```{r}
-ssp1 <- communities::solutions_space(g, tmax = 20, met = "LD", resolution = 0.9)
-ssp2 <- communities::solutions_space(g, tmax = 20, met = "LD", resolution = 0.9, comp_method = 'nmi') 
+ssp1 <- communities::solutions_space(g, tmax = 20, met = "LD", resolution = 0.9, comp_method = 'ami')
+ssp2 <- communities::solutions_space(g, tmax = 20, met = "LD", resolution = 0.9, comp_method = 'ari') 
 
 ssp1$data
 ssp2$data
 
-if(nrow(ssp1$data)>1){
-  plot_sol_space(ssp1)
-}
+```
 
 
- 
+```{r}
+plot(g)
+communities::solutions_space(g, tmax = 100, met = "WT", comp_method = "ami") %>% plot_sol_space()
  
 ```
 
 ```{r}
-plot(g)
-communities::solutions_space(g, tmax = 100, met = "WT") %>% 
-  plot_sol_space()
+random_graph <- erdos.renyi.game(100, p=0.8, type = "gnp")
+random_ssp <- communities::solutions_space(random_graph, 
+                                           tmax = 100, met = "LD", resolution = .99, comp_method = "ari")
+random_ssp$data
+random_ssp$M
+plot_sol_space(random_ssp)
+
+
 ```
 
