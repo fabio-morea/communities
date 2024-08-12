@@ -50,7 +50,15 @@ plot_sol_space(ssp)
 ```{r}
 communities::solutions_space(g, tmax = 100, met = "WT",  confidence = 0.95) %>% 
   plot_sol_space()
- 
+
+aricode::AMI(M[, 1],M[, 3])%>%round(6)
+
+sim_score <- switch(
+                        comp_method,
+                        "ari" = aricode::ARI(membership[match(V(g)$name, V(gs)$name)],M[, i]),
+                        "ami" = aricode::AMI(membership[match(V(g)$name, V(gs)$name)],M[, i])
+                    ) %>% round(6)
+
 ```
 
 ```{r}
@@ -60,10 +68,9 @@ ssp2 <- communities::solutions_space(g, tmax = 20, met = "LD", resolution = 0.9,
 ssp1$data
 ssp2$data
 
-
-ssp$M
-ssp$data
-plot_sol_space(ssp)
+if(nrow(ssp1$data)>1){
+  plot_sol_space(ssp1)
+}
 
 
  

@@ -6,7 +6,7 @@ solutions_space <-
     function(g,
              tmax,
              met='IM',
-             comp_method='adjusted.rand',
+             comp_method='ami',#ari
              confidence = .95,
              resolution = 1.0, IM.nb.trials = 10, WT.steps=3) {
         M <- matrix(NA, nrow = vcount(g), ncol = 1)
@@ -39,10 +39,11 @@ solutions_space <-
                 
                 # check if already esists
                 for (i in 1:ns) {
-                    sim_score <- igraph::compare(
-                        membership[match(V(g)$name, V(gs)$name)],
-                                        M[, i],
-                                        method = comp_method) %>%
+                    sim_score <- switch(
+                        comp_method,
+                        "ari" = aricode::ARI(membership[match(V(g)$name, V(gs)$name)],M[, i]),
+                        "ami" = aricode::AMI(membership[match(V(g)$name, V(gs)$name)],M[, i]),
+                        "Invalid selection") %>% 
                         round(6)
                     
                     if (sim_score == 1) {
