@@ -26,11 +26,27 @@ plot(g)
 
 ## explore solutions space
 ```{r}
-sol_space <- communities::solutions_space(g, tmax = 100, met = "LV", confidence = .9, resolution = 1.0, comp_method = "ami")
+sol_space <- communities::solutions_space(g, tmax = 500, met = "LV", confidence = .9, resolution = 1.0, comp_method = "ami")
 M <- sol_space$M 
 df <- sol_space$data
+sm <- sol_space$simil
 plot_sol_space(sol_space)
-
+   simil_df <- as.data.frame(sol_space$simil)
+    simil_df$Partition1 <- rownames(simil_df)
+    simil_long <- simil_df %>%
+        pivot_longer(cols = -Partition1, names_to = "Partition2", values_to = "s")
+    
+    simil_long <- simil_long %>%
+        mutate(Partition1 = factor(Partition1, levels = unique(Partition1)),
+               Partition2 = factor(Partition2, levels = unique(Partition2)))
+    
+    pl4 <-  ggplot(simil_long, aes(x = Partition2, y = Partition1, fill = s)) +
+        geom_tile() +
+        scale_fill_gradient(low = "white", high = "darkgreen") +
+        labs(x = "solutions", y = "solutions", title = "Heatmap of Similarity Matrix") +
+        theme_minimal() +
+        theme(axis.text.x = element_text(angle = 90, hjust = 1),
+              axis.text.y = element_text(hjust = 1))+ theme(aspect.ratio = 1.0)
 
 ```
 

@@ -174,12 +174,24 @@ plot_sol_space <- function(sol_space) {
         theme_minimal() +
         labs(x = "community", y = "")
     
+    #heatmap
+    #
+    simil_df <- as.data.frame(sol_space$simil)
+    simil_df$Partition1 <- rownames(simil_df)
+    simil_long <- simil_df %>%
+        pivot_longer(cols = -Partition1, names_to = "Partition2", values_to = "similarity")
     
-    pl4 <-  heatmap(sol_space$simil,
-            Rowv = NA, 
-            Colv = NA, 
-            col = colorRampPalette(c("white", "darkgreen"))(256), 
-            main = "Heatmap of ARI Similarity Matrix") 
+    simil_long <- simil_long %>%
+        mutate(Partition1 = factor(Partition1, levels = unique(Partition1)),
+               Partition2 = factor(Partition2, levels = unique(Partition2)))
+    
+    pl4 <-  ggplot(simil_long, aes(x = Partition2, y = Partition1, fill = similarity)) +
+        geom_tile() +
+        scale_fill_gradient(low = "white", high = "darkgreen") +
+        labs(x = "solutions", y = "solutions", title = "Heatmap of Similarity Matrix") +
+        theme_minimal() +
+        theme(axis.text.x = element_text(angle = 90, hjust = 1),
+              axis.text.y = element_text(hjust = 1))+ theme(aspect.ratio = 1.0)
     
     
     
