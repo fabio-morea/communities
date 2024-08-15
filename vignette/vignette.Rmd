@@ -16,8 +16,8 @@ library(communities)
 ## create a ring of cliques
 
 ```{r sample1, message=FALSE, warning=FALSE}
-g <- communities::make_ring_of_cliques(num_cliques = 4,
-                                       clique_size = 16, 
+g <- communities::make_ring_of_cliques(num_cliques = 5,
+                                       clique_size = 4, 
                                        add_center = F, 
                                        add_bridges = T)
 plot(g)
@@ -26,10 +26,18 @@ plot(g)
 
 ## explore solutions space
 ```{r}
-sol_space <- communities::solutions_space(g, tmax = 100, met = "LV", confidence = 0.95,  comp_method = "ami")
+sol_space <- communities::solutions_space(g, 
+                                          tmax = 100, 
+                                          met = "LV", 
+                                          confidence = 0.95,  
+                                          comp_method = "ami")
+
+sol_space <- communities::quality(g, sol_space)
 M <- sol_space$M 
 df <- sol_space$data
 sm <- sol_space$simil
+df
+
 plot_sol_space(sol_space)
 
 sim_score_solutions <- rowMeans(sol_space$simil, na.rm = T)
@@ -44,11 +52,11 @@ print(paste("Mean similarity score = ", overall_similarity))
   
 
 ```{r}
-g <- communities::make_ring_of_cliques(num_cliques = 4,
-                                       clique_size = 10, 
+g <- communities::make_ring_of_cliques(num_cliques = 10,
+                                       clique_size = 5, 
                                        add_center = T, 
                                        add_bridges = F)
-ssp <- communities::solutions_space(g, tmax = 100, met = "LP", resolution = 1, confidence = .95) 
+ssp <- communities::solutions_space(g, tmax = 20, met = "WT", confidence = .9) 
 ssp$data
 #ssp$M
 plot_sol_space(ssp)
@@ -88,14 +96,17 @@ print(paste("Mean similarity score = ", overall_similarity))
 ```{r}
 random_graph <- erdos.renyi.game(100, p=0.5, type = "gnp")
 V(random_graph)$name <- 1:vcount(random_graph)
+V(random_graph)$name <- 1:vcount(random_graph)
 
 
-random_ssp <- communities::solutions_space(random_graph, tmax = 10, met = "LV", 
+random_ssp <- communities::solutions_space(random_graph, tmax = 50, met = "LV", 
                                            comp_method = "ami", confidence = .9)
 #random_ssp$data
 #random_ssp$M
  
 plot_sol_space(random_ssp)
+communities::empirical_mu(random_graph, random_ssp$M[,1])
+quality(random_graph, random_ssp)
 
 sim_score_solutions <- rowMeans(random_ssp$simil, na.rm = T)
 print(sim_score_solutions)
