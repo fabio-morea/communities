@@ -16,9 +16,9 @@ library(communities)
 ## create a ring of cliques
 
 ```{r sample1, message=FALSE, warning=FALSE}
-g <- communities::make_ring_of_cliques(num_cliques = 4,
+g <- communities::make_ring_of_cliques(num_cliques = 5,
                                        clique_size = 5, 
-                                       add_center = F, 
+                                       add_center = T, 
                                        add_bridges = F)
 plot(g)
 ```
@@ -28,10 +28,19 @@ plot(g)
 ```{r}
 sol_space <- communities::solutions_space(g, 
                                           tmax = 100,
-                                          shuffle = TRUE,
-                                          met = "LV", 
+                                          shuffle = FALSE,
+                                          met = "WT", 
+                                          resolution = 0.99,
                                           confidence = 0.95,  
                                           comp_method = "ami")
+
+ 
+M <- sol_space$M 
+#comms <- igraph::make_clusters(g, M[,1])
+comms <- igraph::make_clusters(g, M)
+
+plot(comms, g)
+
 df <- sol_space$data
 nrow(sol_space$data)
 sol_space <- communities::quality_check(g, sol_space)
@@ -104,14 +113,14 @@ random_graph <- erdos.renyi.game(100, p=0.5, type = "gnp")
 V(random_graph)$name <- 1:vcount(random_graph)
 
 
-random_ssp <- communities::solutions_space(random_graph, tmax = 50, met = "LV", 
+random_ssp <- communities::solutions_space(random_graph, tmax = 50, met = "LD", 
                                            comp_method = "ami", confidence = .9)
-#random_ssp$data
-#random_ssp$M
+random_ssp <- communities::quality_check(random_graph, random_ssp)
+
+df<-random_ssp$data
+print(paste("non valid solutions: ",sum(df$valid==FALSE)))
+print(paste("valid solutions: ",sum(df$valid==TRUE)))
  
-communities::empirical_mu(random_graph, random_ssp$M[,1])
-random_ssp <- communities::quality(random_graph, random_ssp)
-random_ssp$data
 plot_sol_space(random_ssp)
 
 sim_score_solutions <- rowMeans(random_ssp$simil, na.rm = T)

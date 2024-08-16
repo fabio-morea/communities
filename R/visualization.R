@@ -173,7 +173,7 @@ plot_sol_space <- function(sol_space) {
             shape = if_else(cs == 1, "single", "comm")
         )) +
         scale_color_manual(values = c("black", "red")) +
-        scale_shape_manual(values = c(1, 18)) +
+        scale_shape_manual(values = c(1, 4)) +
         
         theme_minimal() +
         labs(x = "community", solution = "")
