@@ -19,7 +19,7 @@ library(communities)
 g <- communities::make_ring_of_cliques(num_cliques = 4,
                                        clique_size = 5, 
                                        add_center = F, 
-                                       add_bridges = T)
+                                       add_bridges = F)
 plot(g)
 ```
 
@@ -27,17 +27,23 @@ plot(g)
 ## explore solutions space
 ```{r}
 sol_space <- communities::solutions_space(g, 
-                                          tmax = 100, 
+                                          tmax = 100,
+                                          shuffle = TRUE,
                                           met = "LV", 
                                           confidence = 0.95,  
                                           comp_method = "ami")
-
-sol_space <- communities::quality(g, sol_space)
+df <- sol_space$data
+nrow(sol_space$data)
+sol_space <- communities::quality_check(g, sol_space)
 M <- sol_space$M 
 df <- sol_space$data
-sm <- sol_space$simil
-df
 
+
+sm <- sol_space$simil
+print(paste("non valid solutions: ",sum(df$valid==FALSE)))
+print(paste("valid solutions: ",sum(df$valid==TRUE)))
+
+sol_space$data <- sol_space$data %>% filter(valid == TRUE)
 plot_sol_space(sol_space)
 
 sim_score_solutions <- rowMeans(sol_space$simil, na.rm = T)

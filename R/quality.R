@@ -26,25 +26,30 @@ internally_connected <- function(g, community_labels) {
 
 #' @export
 quality_check <- function(g, sol_space){
-    M <- sol_space$M 
     
+    M <- sol_space$M 
+
     sol_space$data$valid <- TRUE
     
-    n_solutions = ncol(M)
+    n_solutions = nrow(sol_space$data)
     
     for (i in 1:n_solutions){
-        labels <- M[,i] %>% unique() %>% sort()
-        sol_space$data$k[i] <- length(labels)
+        if (n_solutions == 1){
+            labels <- M    
+        } else {
+            labels <- M[,i]
+        } 
+        sol_space$data$k[i] <- length(labels %>% unique())
         sol_space$data$k_n[i] <- sol_space$data$k[i] / vcount(g)
         
         # modularity: need to use c_membership + 1 to handle community label 0
-        sol_space$data$mod[i] <- igraph::modularity (g,  M[,i] + 1)
+        sol_space$data$mod[i] <- igraph::modularity (g,  labels + 1)
         
         # mixing parameter mu
-        sol_space$data$mu[i] <- communities::empirical_mu(g, M[,i])
+        sol_space$data$mu[i] <- communities::empirical_mu(g, labels)
         
         # communities are internally connected
-        sol_space$data$int_conn[i]  <- max(communities::internally_connected(g, M[,i]))
+        sol_space$data$int_conn[i]  <- max(communities::internally_connected(g, labels))
         
         # validity
         if (sol_space$data$mu[i] > 0.5){sol_space$data$valid[i] <- FALSE}

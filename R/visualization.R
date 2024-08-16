@@ -99,6 +99,11 @@ layout_distance_comm <- function(g, membership, eps = .02) {
 
 plot_sol_space <- function(sol_space) {
     
+    if(nrow(sol_space$data) == 0){
+        print("Solution space is epmty")
+        return(0)
+    }
+    
 
     pl1 <- sol_space$data %>%
         ggplot(aes(x = y)) +
@@ -174,7 +179,9 @@ plot_sol_space <- function(sol_space) {
         labs(x = "community", solution = "")
     
     #heatmap
-    #
+    if (nrow(sol_space$data)>=2) {
+        
+    
     simil_df <- as.data.frame(sol_space$simil)
     simil_df$Partition1 <- rownames(simil_df)
     simil_long <- simil_df %>%
@@ -192,7 +199,7 @@ plot_sol_space <- function(sol_space) {
         theme(axis.text.x = element_text(angle = 90, hjust = 1),
               axis.text.y = element_text(hjust = 1))+ theme(aspect.ratio = 1.0)
     
- 
+    } else {pl4 = NA}
     
     return(list(pl1 = pl1, pl2 = pl2, pl3 = pl3, pl4 = pl4))
 }
