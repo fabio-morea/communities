@@ -16,8 +16,8 @@ library(communities)
 ## create a ring of cliques
 
 ```{r sample1, message=FALSE, warning=FALSE}
-g <- communities::make_ring_of_cliques(num_cliques = 5,
-                                       clique_size = 4, 
+g <- communities::make_ring_of_cliques(num_cliques = 4,
+                                       clique_size = 5, 
                                        add_center = F, 
                                        add_bridges = T)
 plot(g)
@@ -96,7 +96,6 @@ print(paste("Mean similarity score = ", overall_similarity))
 ```{r}
 random_graph <- erdos.renyi.game(100, p=0.5, type = "gnp")
 V(random_graph)$name <- 1:vcount(random_graph)
-V(random_graph)$name <- 1:vcount(random_graph)
 
 
 random_ssp <- communities::solutions_space(random_graph, tmax = 50, met = "LV", 
@@ -104,9 +103,10 @@ random_ssp <- communities::solutions_space(random_graph, tmax = 50, met = "LV",
 #random_ssp$data
 #random_ssp$M
  
-plot_sol_space(random_ssp)
 communities::empirical_mu(random_graph, random_ssp$M[,1])
-quality(random_graph, random_ssp)
+random_ssp <- communities::quality(random_graph, random_ssp)
+random_ssp$data
+plot_sol_space(random_ssp)
 
 sim_score_solutions <- rowMeans(random_ssp$simil, na.rm = T)
 print(sim_score_solutions)

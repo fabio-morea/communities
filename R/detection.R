@@ -25,6 +25,7 @@ solutions_space <-
     function(g,
              tmax,
              met='IM',
+             shuffle = TRUE,
              comp_method='ami',#ari
              confidence = .95,
              resolution = 1.0, IM.nb.trials = 10, WT.steps=3) {
@@ -35,7 +36,12 @@ solutions_space <-
         prior <- data.frame(a = 1, b = 1) # no trials, no info
         
         for (t in 1:tmax) {
-            gs <- igraph::permute(g, sample(vcount(g)))
+            if (shuffle == TRUE) {
+                gs <- igraph::permute(g, sample(vcount(g)))    
+            } else {
+                gs <- g
+            }
+            
             comms <- switch(
                 met,
                 "IM" = igraph::infomap.community(gs, nb.trials=IM.nb.trials),  
@@ -46,8 +52,6 @@ solutions_space <-
             )
             
             membership <- comms$membership
-            
-            
             
             if (t == 1) {
                 # first solution found
@@ -68,24 +72,20 @@ solutions_space <-
                     if (sim_score == 1) {
                         #we already have this solution
                         posterior <- bayesian_update_1(posterior, i)
-                        break
+                        break # no need to explore further
                     }
                 }#end for
 
                 if (sim_score < 1) {
-                    
                     #it's a new solution
                     ns <- ns + 1
                     M <- cbind(M, membership[match(V(g)$name, V(gs)$name)])
-
-                    # add a new solution
                     posterior <- bayesian_new_1(posterior)
-
-                 
                 }
                   
                 results <- posterior %>%  
                     mutate(lower = NA, upper = NA, median = NA)
+                
                 s = nrow(results)
 
                 # confidence intervals
@@ -97,19 +97,15 @@ solutions_space <-
                 }
                 results <- results %>% arrange(-median)
                 
-                
-            }#end if
+            }#end if 
 
         }#end for
         
-        
-        
-        results <- results %>% filter(a > 0) #remove empty line
+        #results <- results %>% filter(a > 0) #remove empty lines
         results$y <- 1:nrow(results)
-        results$id <- paste0("s", results$y)
         
-        # to add: check for non-valid communities k=1, k=n or disconnected
-        # 
+        prefix <- if_else(shuffle==TRUE, "s", "u")
+        results$id <- paste0(prefix, results$y)
         
         results$group <- NA
         grp<-1
