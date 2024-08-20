@@ -18,41 +18,38 @@ library(communities)
 ```{r sample1, message=FALSE, warning=FALSE}
 g <- communities::make_ring_of_cliques(num_cliques = 5,
                                        clique_size = 5, 
-                                       add_center = T, 
-                                       add_bridges = F)
+                                       add_center = F, 
+                                       add_bridges = T)
 plot(g)
+
+
 ```
 
 
 ## explore solutions space
 ```{r}
+
+
+
 sol_space <- communities::solutions_space(g, 
                                           tmax = 100,
-                                          shuffle = FALSE,
-                                          met = "WT", 
+                                          shuffle = TRUE,
+                                          met = "LD", 
                                           resolution = 0.99,
                                           confidence = 0.95,  
                                           comp_method = "ami")
 
- 
-M <- sol_space$M 
-#comms <- igraph::make_clusters(g, M[,1])
-comms <- igraph::make_clusters(g, M)
-
-plot(comms, g)
-
-df <- sol_space$data
-nrow(sol_space$data)
 sol_space <- communities::quality_check(g, sol_space)
-M <- sol_space$M 
-df <- sol_space$data
 
+df <- sol_space$data
+M <- sol_space$M 
+ 
 
 sm <- sol_space$simil
 print(paste("non valid solutions: ",sum(df$valid==FALSE)))
 print(paste("valid solutions: ",sum(df$valid==TRUE)))
 
-sol_space$data <- sol_space$data %>% filter(valid == TRUE)
+#sol_space$data <- sol_space$data %>% filter(valid == TRUE)
 plot_sol_space(sol_space)
 
 sim_score_solutions <- rowMeans(sol_space$simil, na.rm = T)
@@ -60,6 +57,8 @@ print(sim_score_solutions)
 
 overall_similarity<-mean(sol_space$simil, na.rm = T)
 print(paste("Mean similarity score = ", overall_similarity))
+
+ 
 ```
 
  
@@ -72,6 +71,8 @@ g <- communities::make_ring_of_cliques(num_cliques = 10,
                                        add_center = T, 
                                        add_bridges = F)
 ssp <- communities::solutions_space(g, tmax = 20, met = "WT", confidence = .9) 
+ssp <- communities::quality_check(g, ssp)
+
 ssp$data
 #ssp$M
 plot_sol_space(ssp)

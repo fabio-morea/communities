@@ -98,13 +98,13 @@ layout_distance_comm <- function(g, membership, eps = .02) {
 
 
 plot_sol_space <- function(sol_space) {
-    
-    if(nrow(sol_space$data) == 0){
+ 
+   if(nrow(sol_space$data) == 0){
         print("Solution space is epmty")
         return(0)
     }
     
-
+    # 1 ######################### 
     pl1 <- sol_space$data %>%
         ggplot(aes(x = y)) +
         geom_line(aes(y = cumsum), color = "black") +
@@ -115,6 +115,7 @@ plot_sol_space <- function(sol_space) {
         geom_hline(yintercept = 0.5, color = "red") +
         theme_light()
     
+    # 2 ######################### 
     pl2 <- sol_space$data %>%
         ggplot(aes(y = id)) +
         geom_rect(
@@ -132,8 +133,10 @@ plot_sol_space <- function(sol_space) {
             xend = upper,
             y = y,
             yend = y
-        ), size = 1) +
-        geom_point(aes(x = median , y = y), size = 3) +
+        ), linewidth = 1) +
+        geom_point(aes(x = median , y = y, shape = valid, color = valid), size = 3) +
+        scale_shape_manual(values = c(16, 3)) +   
+        scale_color_manual(values = c("red", "black")) +
         geom_vline(xintercept = 0.5,
                    color = "red",
                    linetype = "dashed") +
@@ -144,7 +147,7 @@ plot_sol_space <- function(sol_space) {
              y = "solution")   +
         theme_minimal() 
     
-    
+    # 3 ######################### 
     nn <- nrow(sol_space$data)
     df <- data.frame()
     for (j in 1:nn) {
@@ -172,8 +175,8 @@ plot_sol_space <- function(sol_space) {
             color = if_else(cs == 1, "single", "comm"),
             shape = if_else(cs == 1, "single", "comm")
         )) +
-        scale_color_manual(values = c("black", "red")) +
-        scale_shape_manual(values = c(1, 4)) +
+        scale_color_manual(values = c("black", "blue")) +
+        scale_shape_manual(values = c(1, 5)) +
         
         theme_minimal() +
         labs(x = "community", solution = "")
