@@ -23,19 +23,19 @@ bayesian_new_1 <- function(prior){
 #' @export
 solutions_space <-
     function(g,
-             tmax,
+             n_trials,
              met='IM',
              shuffle = TRUE,
              comp_method='ami',#ari
              confidence = .95,
              resolution = 1.0, IM.nb.trials = 10, WT.steps=3) {
         M <- matrix(NA, nrow = vcount(g), ncol = 1)
-        S <- matrix(0.0,  nrow = tmax, ncol = tmax)
+        S <- matrix(0.0,  nrow = n_trials, ncol = n_trials)
         ns <- 0   
 
         prior <- data.frame(a = 1, b = 1) # no trials, no info
         
-        for (t in 1:tmax) {
+        for (t in 1:n_trials) {
             if (shuffle == TRUE) {
                 gs <- igraph::permute(g, sample(vcount(g)))    
             } else {

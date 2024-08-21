@@ -32,10 +32,10 @@ plot(g)
 
 
 sol_space <- communities::solutions_space(g, 
-                                          tmax = 100,
+                                          n_trials = 100,
                                           shuffle = TRUE,
-                                          met = "EB", 
-                                          resolution = 0.99,
+                                          met = "IM", 
+                                          IM.nb.trials = 1,
                                           confidence = 0.95,  
                                           comp_method = "ami")
 
@@ -45,6 +45,10 @@ plot_sol_space(sol_space)
 df <- sol_space$data
 M <- sol_space$M 
 plot(make_clusters(g, M[,1]),g)
+plot(make_clusters(g, M[,2]),g)
+plot(make_clusters(g, M[,3]),g)
+plot(make_clusters(g, M[,4]),g)
+
 
  
 sm <- sol_space$simil
@@ -72,7 +76,7 @@ g <- communities::make_ring_of_cliques(num_cliques = 10,
                                        clique_size = 5, 
                                        add_center = T, 
                                        add_bridges = F)
-ssp <- communities::solutions_space(g, tmax = 20, met = "WT", confidence = .9) 
+ssp <- communities::solutions_space(g, n_trials = 20, met = "WT", confidence = .9) 
 ssp <- communities::quality_check(g, ssp)
 
 ssp$data
@@ -82,7 +86,7 @@ plot_sol_space(ssp)
 
 
 ```{r}
-communities::solutions_space(g, tmax = 100, met = "WT",  comp_method = "ari", confidence = 0.95) %>% 
+communities::solutions_space(g, n_trials = 100, met = "WT",  comp_method = "ari", confidence = 0.95) %>% 
   plot_sol_space()
 
   
@@ -90,8 +94,8 @@ communities::solutions_space(g, tmax = 100, met = "WT",  comp_method = "ari", co
 ```
 
 ```{r}
-ssp1 <- communities::solutions_space(g, tmax = 20, met = "LD", resolution = 0.9, comp_method = 'ami')
-ssp2 <- communities::solutions_space(g, tmax = 20, met = "LD", resolution = 0.9, comp_method = 'ari') 
+ssp1 <- communities::solutions_space(g, n_trials = 20, met = "LD", resolution = 0.9, comp_method = 'ami')
+ssp2 <- communities::solutions_space(g, n_trials = 20, met = "LD", resolution = 0.9, comp_method = 'ari') 
 
 ssp1$data
 ssp2$data
@@ -101,7 +105,7 @@ ssp2$data
 
 ```{r}
 plot(g)
-ssp<-communities::solutions_space(g, tmax = 100, met = "WT", comp_method = "ami") 
+ssp<-communities::solutions_space(g, n_trials = 100, met = "WT", comp_method = "ami") 
 plot_sol_space(ssp)
 sim_score_solutions <- rowMeans(ssp$simil, na.rm = T)
 print(sim_score_solutions)
@@ -116,7 +120,7 @@ random_graph <- erdos.renyi.game(100, p=0.5, type = "gnp")
 V(random_graph)$name <- 1:vcount(random_graph)
 
 
-random_ssp <- communities::solutions_space(random_graph, tmax = 50, met = "LD", 
+random_ssp <- communities::solutions_space(random_graph, n_trials = 50, met = "LD", 
                                            comp_method = "ami", confidence = .9)
 random_ssp <- communities::quality_check(random_graph, random_ssp)
 
