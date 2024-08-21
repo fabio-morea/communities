@@ -48,7 +48,8 @@ solutions_space <-
                 "WT" = igraph::walktrap.community(gs, steps = WT.steps),
                 "LV" = igraph::cluster_louvain(gs, resolution = resolution),
                 "LD" = igraph::cluster_leiden(gs, resolution_parameter = resolution),
-                "LP" = igraph::label.propagation.community(gs)
+                "LP" = igraph::label.propagation.community(gs),
+                "EV" = cluster_leading_eigen(gs)
             )
             
             membership <- comms$membership

@@ -16,8 +16,8 @@ library(communities)
 ## create a ring of cliques
 
 ```{r sample1, message=FALSE, warning=FALSE}
-g <- communities::make_ring_of_cliques(num_cliques = 5,
-                                       clique_size = 5, 
+g <- communities::make_ring_of_cliques(num_cliques = 4,
+                                       clique_size = 6, 
                                        add_center = F, 
                                        add_bridges = T)
 plot(g)
@@ -34,23 +34,25 @@ plot(g)
 sol_space <- communities::solutions_space(g, 
                                           tmax = 100,
                                           shuffle = TRUE,
-                                          met = "LD", 
+                                          met = "LV", 
                                           resolution = 0.99,
                                           confidence = 0.95,  
                                           comp_method = "ami")
 
 sol_space <- communities::quality_check(g, sol_space)
+plot_sol_space(sol_space)
 
 df <- sol_space$data
 M <- sol_space$M 
- 
+plot(make_clusters(g, M[,2]),g)
 
+ 
 sm <- sol_space$simil
 print(paste("non valid solutions: ",sum(df$valid==FALSE)))
 print(paste("valid solutions: ",sum(df$valid==TRUE)))
 
 #sol_space$data <- sol_space$data %>% filter(valid == TRUE)
-plot_sol_space(sol_space)
+
 
 sim_score_solutions <- rowMeans(sol_space$simil, na.rm = T)
 print(sim_score_solutions)

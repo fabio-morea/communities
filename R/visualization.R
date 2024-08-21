@@ -134,9 +134,12 @@ plot_sol_space <- function(sol_space) {
             y = y,
             yend = y
         ), linewidth = 1) +
-        geom_point(aes(x = median , y = y, shape = valid, color = valid), size = 3) +
-        scale_shape_manual(values = c(16, 3)) +   
-        scale_color_manual(values = c("red", "black")) +
+        geom_point(aes(x = median , y = y, 
+                       shape = if_else(valid == TRUE, "v", "NV"), 
+                       color = if_else(valid == TRUE, "v", "NV"), 
+                   size = 3)) +
+        scale_shape_manual(values = c("v" = 16, "NV" = 124)) +  # 16 = circle, 3 = cross
+        scale_color_manual(values = c("v" = "black", "NV" = "red")) +
         geom_vline(xintercept = 0.5,
                    color = "red",
                    linetype = "dashed") +
