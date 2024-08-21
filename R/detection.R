@@ -104,10 +104,12 @@ solutions_space <-
         
         #results <- results %>% filter(a > 0) #remove empty lines
         results$y <- 1:nrow(results)
-        
-        prefix <- if_else(shuffle==TRUE, "s", "u")
-        results$id <- paste0(prefix, results$y)
-        
+        if(shuffle==TRUE){
+            results$id <- sprintf("s%02d", results$y)
+        } else {
+            results$id <- sprintf("u%02d", results$y)
+        }
+
         results$group <- NA
         grp<-1
         results$group[1] <- grp
