@@ -18,7 +18,7 @@ library(communities)
 ```{r sample1, message=FALSE, warning=FALSE}
 g <- communities::make_ring_of_cliques(num_cliques = 4,
                                        clique_size = 6, 
-                                       add_center = F, 
+                                       add_center = T, 
                                        add_bridges = T)
 plot(g)
 
@@ -34,7 +34,7 @@ plot(g)
 sol_space <- communities::solutions_space(g, 
                                           tmax = 100,
                                           shuffle = TRUE,
-                                          met = "LV", 
+                                          met = "EB", 
                                           resolution = 0.99,
                                           confidence = 0.95,  
                                           comp_method = "ami")
@@ -44,7 +44,7 @@ plot_sol_space(sol_space)
 
 df <- sol_space$data
 M <- sol_space$M 
-plot(make_clusters(g, M[,2]),g)
+plot(make_clusters(g, M[,1]),g)
 
  
 sm <- sol_space$simil

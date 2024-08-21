@@ -199,7 +199,10 @@ plot_sol_space <- function(sol_space) {
     
     pl4 <-  ggplot(simil_long, aes(x = Partition2, y = Partition1, fill = similarity)) +
         geom_tile() +
-        scale_fill_gradient(low = "white",  high = "darkgreen", limits = c(0, 1)) +
+        #scale_fill_gradient(low = "white",  high = "darkgreen", limits = c(0, 1)) +
+        scale_fill_distiller(palette = "PiYG", direction = 1, limits = c(0, 1), 
+                             na.value = "white", 
+                             guide = "colorbar") +
         labs(x = "solutions", y = "solutions", title = "Heatmap of Similarity Matrix") +
         theme_minimal() +
         theme(axis.text.x = element_text(angle = 90, hjust = 1),

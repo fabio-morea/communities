@@ -49,7 +49,8 @@ solutions_space <-
                 "LV" = igraph::cluster_louvain(gs, resolution = resolution),
                 "LD" = igraph::cluster_leiden(gs, resolution_parameter = resolution),
                 "LP" = igraph::label.propagation.community(gs),
-                "EV" = cluster_leading_eigen(gs)
+                "EV" = igraph::cluster_leading_eigen(gs),
+                "EB" = igraph::cluster_edge_betweenness(gs)
             )
             
             membership <- comms$membership
