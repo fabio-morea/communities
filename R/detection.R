@@ -1,21 +1,23 @@
 
-bayesian_update_1 <- function(prior, i){
+bayesian_update_1 <- function(prior, selected){
+    # a, b: Parameters of the prior Beta(a, b) distribution
+    # i: index of  solution that will be updates
     posterior <- prior
-    # n increases by 1, hence b increases by 1 for all
-    posterior$b <- prior$b + 1
-    # except for the i-th element 
-    posterior$b[i] <- prior$b[i]  
-    
-    # k increases by 1 only for the ith element
-    posterior$a <- prior$a
-    posterior$a[i] <- posterior$a[i] + 1  
-    
+    for (i in 1:nrow(prior)){
+        if (i == selected){
+            posterior$a[i] <- prior$a[i] + 1
+        } else {
+            posterior$b[i] <- prior$b[i]  + 1
+        }
+    }
     return(posterior)
 }
 
 bayesian_new_1 <- function(prior){
-    n = prior$a[1] + prior$b[1]-2
-    posterior <- rbind(prior, data.frame(a = 2, b = n))
+    posterior <- prior
+    n = posterior$a[1] + posterior$b[1] - 2
+    posterior <- rbind(posterior, data.frame(a = 2, b = n))
+    posterior$b <- posterior$b + 1 
     return(posterior)
 }
 
@@ -59,7 +61,7 @@ solutions_space <-
                 # first solution found
                 M[, 1] <- membership[match(V(g)$name, V(gs)$name)]
                 ns <- 1
-                posterior <- bayesian_update_1(prior, i=1)
+                posterior <- bayesian_update_1(prior, 1)
 
             } else {
                 
@@ -100,6 +102,8 @@ solutions_space <-
                 results <- results %>% arrange(-median)
                 
             }#end if 
+            
+            prior <- posterior 
 
         }#end for
         

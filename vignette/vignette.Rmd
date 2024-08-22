@@ -63,7 +63,7 @@ print(sim_score_solutions)
 
 overall_similarity<-mean(sol_space$simil, na.rm = T)
 print(paste("Mean similarity score = ", overall_similarity))
-
+hist(sol_space$simil)
  
 ```
 
@@ -138,41 +138,4 @@ print(paste("Mean similarity score = ", overall_similarity))
 
 
 ```
-```{r}
-
-bayesian_update_1 <- function(prior, i){
-    posterior <- prior
-    # n increases by 1, hence b increases by 1 for all
-    posterior$b <- prior$b + 1
-    # except for the i-th element 
-    posterior$b[i] <- prior$b[i]  
-    
-    # k increases by 1 only for the ith element
-    posterior$a <- prior$a
-    posterior$a[i] <- posterior$a[i] + 1  
-    
-    return(posterior)
-}
-
-bayesian_new_1 <- function(prior){
-    n = prior$a[1] + prior$b[1]-2
-    print(n)
-    posterior <- rbind(prior, data.frame(a = 2, b = n))
-    return(posterior)
-}
-
-prior <- data.frame(a = 1, b = 1) # no trials, no info
-posterior <- bayesian_update_1(prior, i=1)
-
-i=1
-posterior <- bayesian_update_1(posterior, i)
-
-posterior <- bayesian_new_1(posterior)
-
-i=4
-posterior <- bayesian_update_1(posterior, i)
-
-posterior <- bayesian_new_1(posterior)
-```
  
-
