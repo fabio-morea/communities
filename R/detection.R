@@ -202,3 +202,155 @@ solutions_space <-
             simil = similarity_matrix
         ))
     }
+
+
+
+
+#' Calculate Normalized Co-occurrence Matrix
+#'
+#' The `co_occurrence` function computes a normalized co-occurrence matrix from a set of community detection solutions. It measures how frequently nodes appear together in the same community across multiple trials and weights the co-occurrence by a specified importance factor `alpha` for each trial.
+#'
+#' @param M a matrix where each column represents a community detection result from a different trial, and each row corresponds to a node. The entries in the matrix are community labels indicating which community the node belongs to in each trial.
+#' @param names A vector of node names corresponding to the rows of the matrix `M`. 
+#' @param alpha A numeric vector of weights, where each value represents the importance of the corresponding trial in `M`. It is used to weight the contribution of each trial to the final co-occurrence matrix.
+#'
+#' @return A symmetric matrix `CO` where each entry represents the weighted co-occurrence count of node pairs across all trials. The matrix shows how often nodes were grouped together in the same community, scaled by the weights in `alpha`.
+#'
+#' @details The function uses the results of multiple community detection trials stored in `M`. For each trial, nodes that belong to the same community are identified, and their co-occurrence count is incremented by the corresponding value from `alpha`. The co-occurrence matrix is symmetric, reflecting the fact that if node A co-occurs with node B, then node B also co-occurs with node A.
+#'
+#' @examples
+#' # Assume M is a matrix of community memberships across trials
+#' # and alpha is a vector of weights for each trial.
+#' co_matrix <- co_occurrence(M, names = V(g)$name, alpha = rep(1, ncol(M)))
+#' print(co_matrix)
+#'
+#' @export
+co_occurrence <- function(M, names, alpha) {
+    # calculates normalized co-occurrence matrix from solution space
+    
+    n_trials <- length(alpha)
+    n_nodes <- nrow(M)
+    CO <- matrix(0, nrow = n_nodes, ncol = n_nodes)
+    #colnames(CO) <- names
+    
+    for (t in (1:n_trials)) {
+        print(t)
+        nclusters <- max(M[, t])
+        for (k in 1:nclusters) {
+            samecluster <- (which(M[, t] == k))
+            nc <- length(samecluster)
+            for (i in 1:nc) {
+                for (j in (i+1):nc) {
+                    CO[samecluster[j], samecluster[i]] <- CO[samecluster[j], samecluster[i]] + alpha[t]
+                    CO[samecluster[i], samecluster[j]] <- CO[samecluster[j], samecluster[i]]
+                }
+            }
+        }
+    }
+    
+    return (CO)
+}
+
+
+
+#' Identify Consensus Communities from Co-occurrence Matrix
+#'
+#' The `consensus_communities` function identifies consensus communities from a co-occurrence matrix, grouping nodes into communities based on a threshold `p` for pairwise co-occurrence. It also calculates an uncertainty coefficient (`gamma`) for each node, reflecting how confidently each node belongs to its community. The function can handle outliers (single-node communities).
+#'
+#' @param D A symmetric co-occurrence matrix where each entry represents the pairwise co-occurrence of nodes across multiple trials.
+#' @param p A numeric threshold for defining communities. Nodes are considered to be in the same community if their pairwise co-occurrence value is greater than `p`.
+#' @param group_outliers A logical value indicating whether single-node communities (outliers) should be grouped together. Default is `FALSE`.
+#' @param verbose A logical value indicating whether to print detailed progress information. Default is `FALSE`.
+#'
+#' @return A dataframe containing the following columns:
+#'   - `name`: The name of each node.
+#'   - `cons_comm_label`: The consensus community label assigned to the node.
+#'   - `gamma`: The uncertainty coefficient for each node, calculated as `1 - mean(di)` over all nodes that co-occur at least once in the same community.
+#'   - `comm_size`: The size of the community to which the node belongs.
+#'   - `single`: A boolean indicating whether the node is part of a single-node community (outlier).
+#'
+#' @details The function processes the co-occurrence matrix by iteratively grouping nodes into communities based on the threshold `p`. For each identified community, it computes the uncertainty coefficient `gamma` for each node, which quantifies how strongly a node is tied to its community. The function can optionally group outliers.
+#'
+#' @examples
+#' # Assume D is a co-occurrence matrix
+#' results <- consensus_communities(D, p = 0.5, group_outliers = TRUE)
+#' print(results)
+#'
+#' @export
+
+consensus_communities <- function(D, p, group_outliers = FALSE, verbose = FALSE) {
+    
+    # definition of community: block within D in which dij > p 
+    # this definition includes single node communities (outliers)
+    
+    # definition of uncertainty coefficient gamma: 
+    #     (1-MEAN of di) over all nodes that are at least once in the same community
+    
+    results <- data.frame(name = colnames(D))
+    results$done <- FALSE
+    results$tmp_comm_label <- NA
+    results$gamma <- NA
+    results$comm_size <- NA
+    results$single <- FALSE
+    community_label <- 0
+    nodes_to_process = nrow(results)
+    
+    # definition of community: block within D in which dij > p
+    # this definition includes single node communities (outliers)
+    
+    # definition of uncertainty coefficient gamma:
+    # (1-MEAN of di) over all nodes that are at least once in the same community
+    
+    results <- data.frame(name = colnames(D))
+    results$done <- FALSE
+    results$tmp_comm_label <- NA
+    results$gamma <- NA
+    results$comm_size <- NA
+    results$single
+    community_label <- 0
+    nodes_to_process = nrow(results)
+    
+    while (nodes_to_process > 0)  {
+        community_label <- community_label + 1
+        
+        #select a block with respect to threshold p, first row not done
+        nodes_internal <- (D[which.max(results$done == FALSE),] > p)
+        
+        # calculate gamma for eachnode in the block
+        gammas <- D[nodes_internal,]
+        # ignore nodes that are never in the same community
+        gammas[gammas == 0] <- NA
+        
+        if (sum(nodes_internal) > 1) {
+            # a proper block
+            results$gamma[nodes_internal] <- 1 - apply(gammas, 1, mean, na.rm = T)
+        } else {
+            # a single node
+            results$gamma[nodes_internal] <- 1 - mean(gammas,  na.rm = T)
+        }
+        
+        results$tmp_comm_label[nodes_internal] <- community_label
+        results$comm_size[nodes_internal] <- sum(nodes_internal)
+        results$done[nodes_internal] <-  TRUE
+        nodes_to_process <- sum(results$done == FALSE)
+    }
+    
+    results$gamma[is.na(results$gamma)] <- 0.0
+    results$single[results$comm_size == 1] <- TRUE
+    
+    if (group_outliers) { results$tmp_comm_label[results$single] <- 0 }
+    
+    x <- results %>%
+        group_by(tmp_comm_label) %>%
+        summarize(n = n()) %>% arrange(-n) %>%
+        mutate(cons_comm_label = row_number())
+    
+    results <- results %>%
+        inner_join (x, by = 'tmp_comm_label') %>%
+        select(name, cons_comm_label, gamma, comm_size, single)
+    
+
+    return(results)
+}
+
+
