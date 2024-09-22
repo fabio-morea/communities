@@ -2,22 +2,36 @@
 % Please edit documentation in R/visualization.R
 \name{layout_distance_comm}
 \alias{layout_distance_comm}
-\title{The function layout_distance_gamma calculates a distance between pairs of nodes, that enhances the visualization,
-grouping nodes of the same community, and spreading out different communities.}
+\title{Calculate Distances for Community-Based Network Layout}
 \usage{
 layout_distance_comm(g, membership, eps = 0.02)
 }
 \arguments{
-\item{g:}{The network to be analyzed. It should be an iGraph object with weights E(g)$weight (if the network is unweighted, set E(g)$weight to 1.0)}
+\item{g}{An iGraph object representing the network to be analyzed. The network must have edge weights
+stored in \code{E(g)$weight}. If the network is unweighted, set \code{E(g)$weight} to 1.0 for all edges.}
 
-\item{membership:}{The membership vector, ordered as V(g).}
+\item{membership}{A numeric vector representing the community membership of each node, where each
+entry corresponds to a node in the graph \code{g} (ordered as \code{V(g)}).}
 
-\item{eps:}{the distance between community members. typical value in the range 0.1 to 0.2.}
+\item{eps}{A numeric value representing the minimum distance between nodes within the same community.
+The default value is 0.02, and typical values range from 0.1 to 0.2.}
 }
 \value{
-An array of distances, ordered as E(g).
+A numeric vector of distances between pairs of nodes, ordered according to the edges in \code{g} (i.e., \code{E(g)}).
+Nodes in the same community will have smaller distances, while nodes in different communities will be spread further apart.
 }
 \description{
-The function layout_distance_gamma calculates a distance between pairs of nodes, that enhances the visualization,
-grouping nodes of the same community, and spreading out different communities.
+The \code{layout_distance_comm} function computes distances between pairs of nodes in a network
+to enhance visualization. The function clusters nodes belonging to the same community more
+closely while pushing nodes from different communities further apart.
+}
+\details{
+The function calculates distances based on edge weights and community membership. The parameter
+\code{eps} sets the minimum distance between nodes within the same community, while the actual distance depends
+on the edge weight between the nodes.
+}
+\examples{
+# Assuming 'g' is a pre-existing iGraph object and 'membership' is a vector of community memberships
+distances <- layout_distance_comm(g, membership, eps = 0.15)
+
 }

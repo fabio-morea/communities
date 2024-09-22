@@ -2,16 +2,31 @@
 % Please edit documentation in R/visualization.R
 \name{plot_sol_space}
 \alias{plot_sol_space}
-\title{The function plot_solution_space produces plots of the solution space}
+\title{Plot the Solution Space of Community Detection Results}
 \usage{
 plot_sol_space(sol_space)
 }
 \arguments{
-\item{sol_space:}{a dataframe produced by explore_solution_space function}
+\item{sol_space}{A dataframe produced by the \code{explore_solution_space} function. The dataframe should contain
+data on community partitions and relevant statistics such as cumulative sums, medians, and upper/lower bounds
+for each solution.}
 }
 \value{
-A list of 2 plots
+A list of up to 4 plots:
+\itemize{
+\item \code{pl1}: A line plot showing the cumulative sum and median of solutions, with error bars indicating variability.
+\item \code{pl2}: A visualization of the solution space, showing the range of valid and non-valid solutions.
+\item \code{pl3}: A scatter plot showing the distribution of community sizes for each solution.
+\item \code{pl4}: A plot representing the similarity between the solutions (empty if solution space contains only one solution).
+}
 }
 \description{
-The function plot_solution_space produces plots of the solution space
+The \code{plot_sol_space} function generates a series of plots to visually explore the solution space
+derived from community detection analysis. It provides insights into the distribution of solutions,
+their internal consistency, and similarities between different partitions.
+}
+\examples{
+# Assuming 'sol_space' is a dataframe produced by 'explore_solution_space'
+plot_list <- plot_sol_space(sol_space)
+
 }

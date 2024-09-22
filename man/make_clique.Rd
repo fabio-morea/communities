@@ -2,10 +2,33 @@
 % Please edit documentation in R/ring_of_cliques.R
 \name{make_clique}
 \alias{make_clique}
-\title{Functions to make a "ring of cliques"}
+\title{Create a Clique and Assign a Community Label}
 \usage{
 make_clique(clique_size, comm_label)
 }
+\arguments{
+\item{clique_size}{An integer representing the number of nodes in the clique. All nodes will
+be fully connected to each other.}
+
+\item{comm_label}{A numeric or character value used to assign a community label to the nodes
+within the clique. The label will be stored in the \code{community} node attribute.}
+}
+\value{
+An undirected iGraph object representing a clique, where all nodes are connected.
+Each node will have a \code{community} attribute assigned according to the \code{comm_label} parameter.
+}
 \description{
-Functions to make a "ring of cliques"
+The \code{make_clique} function generates a fully connected subgraph (i.e. a clique) of a specified size
+and assigns a community label to all nodes in the clique. This function is used mainly by \code{make_ring_of_cliques()}.
+}
+\details{
+A clique is a subset of a graph where every node is connected to every other node.
+This function constructs such a graph using a given number of nodes and allows the assignment
+of a common community label to those nodes. The returned graph is undirected and can be combined
+with other cliques or networks.
+}
+\examples{
+# Create a clique of size 5 with community label 1
+clique <- make_clique(clique_size = 5, comm_label = 1)
+
 }

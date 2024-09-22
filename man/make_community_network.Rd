@@ -2,27 +2,40 @@
 % Please edit documentation in R/visualization.R
 \name{make_community_network}
 \alias{make_community_network}
-\title{This function builds a network (Gc) whose nodes represent communities within the original network (G).
-Gc can be utilized for in-depth analysis and visualization of the relationships among these communities.}
+\title{Build a Community Network from an iGraph Object}
 \usage{
 make_community_network(g)
 }
 \arguments{
-\item{g:}{The network to be analyzed. It should be an iGraph object with specific attributes:
+\item{g}{An iGraph object representing the original network to be analyzed. The network
+must include the following attributes:
 \itemize{
-\item V(g)$community: An integer value representing the community assignment for each node.
-\item E(g)$w: A numeric vector containing edge weights. If the network is unweighted, set E(g)$w to 1.0.
+\item \code{V(g)$community}: An integer vector representing the community assignment for each node.
+\item \code{E(g)$w}: A numeric vector representing edge weights. If the network is unweighted,
+set \code{E(g)$w} to 1.0 for all edges.
 }}
 }
 \value{
-A network object (Gc) with the following attributes:
+An iGraph object representing the community network (\code{Gc}) with the following attributes:
 \itemize{
-\item $membership: Stores the community labels.
-\item E(Gc)$w: The sum of corresponding edge weights in the original network (G).
-\item V(Gc)$size: the number of nodes of the original network G that are represented in a node of Gc.
+\item \code{V(Gc)$membership}: Community labels corresponding to the ones in the original network.
+\item \code{E(Gc)$w}: Edge weights representing the sum of edge weights between communities in the original network.
+\item \code{V(Gc)$size}: The number of nodes from the original network \code{G} that belong to each community in \code{Gc}.
 }
 }
 \description{
-This function builds a network (Gc) whose nodes represent communities within the original network (G).
-Gc can be utilized for in-depth analysis and visualization of the relationships among these communities.
+This function constructs a new network (\code{Gc}), where each node represents a community
+within the original network (\code{G}). The resulting community network can be used to
+analyze the relationships between communities and explore their structure and interactions.
+}
+\details{
+This function aggregates the nodes and edges of the original network based on
+their community membership, creating a higher-level network where each node represents
+a community, and edges between nodes represent the aggregated connections between those communities.
+}
+\examples{
+# Assuming 'g' is a pre-existing iGraph object with community and edge weight attributes
+community_network <- make_community_network(g)
+
+  
 }
