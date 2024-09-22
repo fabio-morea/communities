@@ -46,52 +46,6 @@ make_community_network <- function (g) {
     return(gc)
 }
 
-#' Calculate Distances to Enhance Network Layout Visualization
-#'
-#' The `layout_distance_gamma` function computes a distance matrix for pairs of nodes 
-#' in a network. This distance enhances the visualization by grouping nodes within the 
-#' same community closer together while spreading out nodes from different communities. 
-#' It is particularly useful for visualizing community structures in networks.
-#'
-#' @param g An iGraph object representing the network to be analyzed. The network should have 
-#' edge weights stored in `E(g)$weight`. If the network is unweighted, set `E(g)$weight` to 1.0 for all edges.
-#' @param D A matrix representing the co-occurrence of nodes.
-#' @param eps A numeric value representing the minimum distance between members of the same 
-#' community. Typical values range from 0.1 to 0.2, where a smaller value tightens the clustering 
-#' within communities.
-#'
-#' @return A numeric vector of distances between pairs of nodes, ordered according to the 
-#' edges in the graph `g` (i.e., `E(g)`), where shorter distances reflect stronger 
-#' connections or closer relationships between nodes.
-#'
-#' @details The function calculates distances based on a combination of edge weights and 
-#' co-occurrence values from matrix `D`. The parameter `eps` controls how tightly members 
-#' of the same community are grouped together, while still accounting for edge weights and 
-#' co-occurrence patterns.
-#'
-#' @examples
-#' # Assuming 'g' is a pre-existing iGraph object and 'D' is a co-occurrence matrix
-#' distances <- layout_distance_gamma(g, D, eps = 0.15)
-#'
-#' @export
-layout_distance_gamma <- function(g, D, eps) {
-    if (!is.igraph(g)) {
-        stop("g is not an igraph graph.")
-    }
-    if (any(is.na(E(g)$weight))) {
-        stop("Edge attribute 'weight' contains NA values.")
-    }
-    if (any(is.na(D))) {
-        stop("matrix D contains NA values.")
-    }
-    
-    df <- as_long_data_frame(g) %>% select(from, to, weight)
-    df$dist <- 0
-    for (i in 1:nrow(df)) {
-        df$dist[i] <- eps + (1 - eps) * df$weight[i] * D[df$from[i], df$to[i]]
-    }
-    return(df$dist)
-}
 
 
 #' Calculate Distances for Community-Based Network Layout
