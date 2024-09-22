@@ -1,14 +1,28 @@
-#' This function builds a network (Gc) whose nodes represent communities within the original network (G). 
-#' Gc can be utilized for in-depth analysis and visualization of the relationships among these communities.
-#' 
-#' @param g: The network to be analyzed. It should be an iGraph object with specific attributes:
-#'   - V(g)$community: An integer value representing the community assignment for each node.
-#'   - E(g)$w: A numeric vector containing edge weights. If the network is unweighted, set E(g)$w to 1.0.
-#' 
-#' @returns A network object (Gc) with the following attributes:
-#'   - $membership: Stores the community labels.
-#'   - E(Gc)$w: The sum of corresponding edge weights in the original network (G).
-#'   - V(Gc)$size: the number of nodes of the original network G that are represented in a node of Gc.
+#' Build a Community Network from an iGraph Object
+#'
+#' This function constructs a new network (`Gc`), where each node represents a community
+#' within the original network (`G`). The resulting community network can be used to 
+#' analyze the relationships between communities and explore their structure and interactions.
+#'
+#' @param g An iGraph object representing the original network to be analyzed. The network 
+#' must include the following attributes:
+#'   - `V(g)$community`: An integer vector representing the community assignment for each node.
+#'   - `E(g)$w`: A numeric vector representing edge weights. If the network is unweighted, 
+#' set `E(g)$w` to 1.0 for all edges.
+#'
+#' @return An iGraph object representing the community network (`Gc`) with the following attributes:
+#'   - `V(Gc)$membership`: Community labels corresponding to the ones in the original network.
+#'   - `E(Gc)$w`: Edge weights representing the sum of edge weights between communities in the original network.
+#'   - `V(Gc)$size`: The number of nodes from the original network `G` that belong to each community in `Gc`.
+#'
+#' @details This function aggregates the nodes and edges of the original network based on 
+#' their community membership, creating a higher-level network where each node represents 
+#' a community, and edges between nodes represent the aggregated connections between those communities.
+#'
+#' @examples
+#' # Assuming 'g' is a pre-existing iGraph object with community and edge weight attributes
+#' community_network <- make_community_network(g)
+#'
 #'   
 #' @export
 make_community_network <- function (g) {
@@ -32,14 +46,32 @@ make_community_network <- function (g) {
     return(gc)
 }
 
-#' The function layout_distance_gamma calculates a distance between pairs of nodes, that enhances the visualization,
-#' grouping nodes of the same community, and spreading out different communities.
+#' Calculate Distances to Enhance Network Layout Visualization
 #'
-#' @param g: The network to be analyzed. It should be an iGraph object with weights E(g)$weight (if the network is unweighted, set E(g)$weight to 1.0)
-#' @param D: A matrix of co-occurrence as defined by library CCD.
-#' @param eps: the distance between community members. typical value in the range 0.1 to 0.2.
+#' The `layout_distance_gamma` function computes a distance matrix for pairs of nodes 
+#' in a network. This distance enhances the visualization by grouping nodes within the 
+#' same community closer together while spreading out nodes from different communities. 
+#' It is particularly useful for visualizing community structures in networks.
 #'
-#' @returns An array of distances, ordered as E(g).
+#' @param g An iGraph object representing the network to be analyzed. The network should have 
+#' edge weights stored in `E(g)$weight`. If the network is unweighted, set `E(g)$weight` to 1.0 for all edges.
+#' @param D A matrix representing the co-occurrence of nodes.
+#' @param eps A numeric value representing the minimum distance between members of the same 
+#' community. Typical values range from 0.1 to 0.2, where a smaller value tightens the clustering 
+#' within communities.
+#'
+#' @return A numeric vector of distances between pairs of nodes, ordered according to the 
+#' edges in the graph `g` (i.e., `E(g)`), where shorter distances reflect stronger 
+#' connections or closer relationships between nodes.
+#'
+#' @details The function calculates distances based on a combination of edge weights and 
+#' co-occurrence values from matrix `D`. The parameter `eps` controls how tightly members 
+#' of the same community are grouped together, while still accounting for edge weights and 
+#' co-occurrence patterns.
+#'
+#' @examples
+#' # Assuming 'g' is a pre-existing iGraph object and 'D' is a co-occurrence matrix
+#' distances <- layout_distance_gamma(g, D, eps = 0.15)
 #'
 #' @export
 layout_distance_gamma <- function(g, D, eps) {
@@ -62,14 +94,29 @@ layout_distance_gamma <- function(g, D, eps) {
 }
 
 
-#' The function layout_distance_gamma calculates a distance between pairs of nodes, that enhances the visualization,
-#' grouping nodes of the same community, and spreading out different communities.
+#' Calculate Distances for Community-Based Network Layout
 #'
-#' @param g: The network to be analyzed. It should be an iGraph object with weights E(g)$weight (if the network is unweighted, set E(g)$weight to 1.0)
-#' @param membership: The membership vector, ordered as V(g).
-#' @param eps: the distance between community members. typical value in the range 0.1 to 0.2.
+#' The `layout_distance_comm` function computes distances between pairs of nodes in a network 
+#' to enhance visualization. The function clusters nodes belonging to the same community more 
+#' closely while pushing nodes from different communities further apart.
 #'
-#' @returns An array of distances, ordered as E(g).
+#' @param g An iGraph object representing the network to be analyzed. The network must have edge weights 
+#' stored in `E(g)$weight`. If the network is unweighted, set `E(g)$weight` to 1.0 for all edges.
+#' @param membership A numeric vector representing the community membership of each node, where each 
+#' entry corresponds to a node in the graph `g` (ordered as `V(g)`).
+#' @param eps A numeric value representing the minimum distance between nodes within the same community. 
+#' The default value is 0.02, and typical values range from 0.1 to 0.2.
+#'
+#' @return A numeric vector of distances between pairs of nodes, ordered according to the edges in `g` (i.e., `E(g)`).
+#' Nodes in the same community will have smaller distances, while nodes in different communities will be spread further apart.
+#'
+#' @details The function calculates distances based on edge weights and community membership. The parameter 
+#' `eps` sets the minimum distance between nodes within the same community, while the actual distance depends 
+#' on the edge weight between the nodes.
+#'
+#' @examples
+#' # Assuming 'g' is a pre-existing iGraph object and 'membership' is a vector of community memberships
+#' distances <- layout_distance_comm(g, membership, eps = 0.15)
 #'
 #' @export
 layout_distance_comm <- function(g, membership, eps = .02) {
@@ -90,9 +137,26 @@ layout_distance_comm <- function(g, membership, eps = .02) {
 }
 
 
-#' The function plot_solution_space produces plots of the solution space
-#' @param sol_space: a dataframe produced by explore_solution_space function
-#' @returns A list of 2 plots
+#' Plot the Solution Space of Community Detection Results
+#'
+#' The `plot_sol_space` function generates a series of plots to visually explore the solution space
+#' derived from community detection analysis. It provides insights into the distribution of solutions, 
+#' their internal consistency, and similarities between different partitions.
+#'
+#' @param sol_space A dataframe produced by the `explore_solution_space` function. The dataframe should contain
+#' data on community partitions and relevant statistics such as cumulative sums, medians, and upper/lower bounds 
+#' for each solution.
+#'
+#' @return A list of up to 4 plots:
+#'   - `pl1`: A line plot showing the cumulative sum and median of solutions, with error bars indicating variability.
+#'   - `pl2`: A visualization of the solution space, showing the range of valid and non-valid solutions.
+#'   - `pl3`: A scatter plot showing the distribution of community sizes for each solution.
+#'   - `pl4`: A plot representing the similarity between the solutions (empty if solution space contains only one solution).
+#'
+#' @examples
+#' # Assuming 'sol_space' is a dataframe produced by 'explore_solution_space'
+#' plot_list <- plot_sol_space(sol_space)
+#'
 #' @export
 
 
