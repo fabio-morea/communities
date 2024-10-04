@@ -73,6 +73,7 @@ solutions_space <-
              IM.nb.trials = 10,
              WT.steps = 3) {
         M <- matrix(NA, nrow = vcount(g), ncol = 1)
+        rownames(M) <- V(g)$name
         S <- matrix(0.0,  nrow = n_trials, ncol = n_trials)
         ns <- 0
         
@@ -210,45 +211,56 @@ solutions_space <-
 #'
 #' The `co_occurrence` function computes a normalized co-occurrence matrix from a set of community detection solutions. It measures how frequently nodes appear together in the same community across multiple trials and weights the co-occurrence by a specified importance factor `alpha` for each trial.
 #'
-#' @param M a matrix where each column represents a community detection result from a different trial, and each row corresponds to a node. The entries in the matrix are community labels indicating which community the node belongs to in each trial.
-#' @param names A vector of node names corresponding to the rows of the matrix `M`. 
-#' @param alpha A numeric vector of weights, where each value represents the importance of the corresponding trial in `M`. It is used to weight the contribution of each trial to the final co-occurrence matrix.
+#' @param ssp solution space: a list  containing 3 items:
+#'   - `M`: A matrix where each column represents a unique community detection solution. Rows are ordered as the nodes in the input graph. Columns are ordered by decreasing probability (median of confidence intervals).
+#'   - `data`: A dataframe summarizing the features of each solution, including confidence intervals, similarity scores, and grouping based on confidence levels.
+#'   - `simil`: A similarity matrix (using ARI) between the different solutions found.
+#'   
 #'
-#' @return A symmetric matrix `CO` where each entry represents the weighted co-occurrence count of node pairs across all trials. The matrix shows how often nodes were grouped together in the same community, scaled by the weights in `alpha`.
+#' @return A symmetric matrix `D` where each entry represents the weighted co-occurrence count of node pairs across all trials. The matrix shows how often nodes were grouped together in the same community, scaled by the weights in `alpha`.
 #'
 #' @details The function uses the results of multiple community detection trials stored in `M`. For each trial, nodes that belong to the same community are identified, and their co-occurrence count is incremented by the corresponding value from `alpha`. The co-occurrence matrix is symmetric, reflecting the fact that if node A co-occurs with node B, then node B also co-occurs with node A.
 #'
 #' @examples
-#' # Assume M is a matrix of community memberships across trials
-#' # and alpha is a vector of weights for each trial.
-#' co_matrix <- co_occurrence(M, names = V(g)$name, alpha = rep(1, ncol(M)))
+
+#' D <- co_occurrence(ssp))
 #' print(co_matrix)
 #'
 #' @export
-co_occurrence <- function(M, names, alpha) {
+co_occurrence <- function(ssp) {
     # calculates normalized co-occurrence matrix from solution space
     
-    n_trials <- length(alpha)
+    keep_valid_results = ssp$data$valid  
+    M <- ssp$M[, keep_valid_results]
+    sspdata<-ssp$data[ keep_valid_results,]
+    
+    # weight of each solution
+    alpha <- sspdata$median / sum(sspdata$median) 
+    
+    n_trials <- nrow(sspdata)
     n_nodes <- nrow(M)
-    CO <- matrix(0, nrow = n_nodes, ncol = n_nodes)
-    #colnames(CO) <- names
+    D <- matrix(0, nrow = n_nodes, ncol = n_nodes)
+    rownames(D) <- rownames(M)
+    colnames(D) <- rownames(M)
     
     for (t in (1:n_trials)) {
         print(t)
-        nclusters <- max(M[, t])
-        for (k in 1:nclusters) {
-            samecluster <- (which(M[, t] == k))
-            nc <- length(samecluster)
+        n_comms <- max(M[, t])
+        for (k in 1:n_comms) {
+            same_comm <- (which(M[, t] == k))
+            nc <- length(same_comm)
             for (i in 1:nc) {
                 for (j in (i+1):nc) {
-                    CO[samecluster[j], samecluster[i]] <- CO[samecluster[j], samecluster[i]] + alpha[t]
-                    CO[samecluster[i], samecluster[j]] <- CO[samecluster[j], samecluster[i]]
+                    D[same_comm[j], same_comm[i]] <- D[same_comm[j], same_comm[i]] + alpha[t]
+                    D[same_comm[i], same_comm[j]] <- D[same_comm[j], same_comm[i]]
                 }
             }
         }
     }
     
-    return (CO)
+    diag(D)<-1.0
+
+    return (D)
 }
 
 

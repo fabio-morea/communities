@@ -4,17 +4,18 @@
 \alias{co_occurrence}
 \title{Calculate Normalized Co-occurrence Matrix}
 \usage{
-co_occurrence(M, names, alpha)
+co_occurrence(ssp)
 }
 \arguments{
-\item{M}{a matrix where each column represents a community detection result from a different trial, and each row corresponds to a node. The entries in the matrix are community labels indicating which community the node belongs to in each trial.}
-
-\item{names}{A vector of node names corresponding to the rows of the matrix \code{M}.}
-
-\item{alpha}{A numeric vector of weights, where each value represents the importance of the corresponding trial in \code{M}. It is used to weight the contribution of each trial to the final co-occurrence matrix.}
+\item{ssp}{solution space: a list  containing 3 items:
+\itemize{
+\item \code{M}: A matrix where each column represents a unique community detection solution. Rows are ordered as the nodes in the input graph. Columns are ordered by decreasing probability (median of confidence intervals).
+\item \code{data}: A dataframe summarizing the features of each solution, including confidence intervals, similarity scores, and grouping based on confidence levels.
+\item \code{simil}: A similarity matrix (using ARI) between the different solutions found.
+}}
 }
 \value{
-A symmetric matrix \code{CO} where each entry represents the weighted co-occurrence count of node pairs across all trials. The matrix shows how often nodes were grouped together in the same community, scaled by the weights in \code{alpha}.
+A symmetric matrix \code{D} where each entry represents the weighted co-occurrence count of node pairs across all trials. The matrix shows how often nodes were grouped together in the same community, scaled by the weights in \code{alpha}.
 }
 \description{
 The \code{co_occurrence} function computes a normalized co-occurrence matrix from a set of community detection solutions. It measures how frequently nodes appear together in the same community across multiple trials and weights the co-occurrence by a specified importance factor \code{alpha} for each trial.
@@ -23,9 +24,7 @@ The \code{co_occurrence} function computes a normalized co-occurrence matrix fro
 The function uses the results of multiple community detection trials stored in \code{M}. For each trial, nodes that belong to the same community are identified, and their co-occurrence count is incremented by the corresponding value from \code{alpha}. The co-occurrence matrix is symmetric, reflecting the fact that if node A co-occurs with node B, then node B also co-occurs with node A.
 }
 \examples{
-# Assume M is a matrix of community memberships across trials
-# and alpha is a vector of weights for each trial.
-co_matrix <- co_occurrence(M, names = V(g)$name, alpha = rep(1, ncol(M)))
+D <- co_occurrence(ssp))
 print(co_matrix)
 
 }

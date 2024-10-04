@@ -112,9 +112,6 @@ layout_distance_comm <- function(g, membership, eps = .02) {
 #' plot_list <- plot_sol_space(sol_space)
 #'
 #' @export
-
-
-
 plot_sol_space <- function(sol_space) {
  
    if(nrow(sol_space$data) == 0){
@@ -183,7 +180,7 @@ plot_sol_space <- function(sol_space) {
         
         df <- rbind(df,
                     data.frame(
-                        cs = community_size_dist,
+                        cs = community_size_dist %>% round(0),
                         x = 1:length(community_size_dist),
                         y = rep(j, length(community_size_dist))
                     ))
@@ -198,9 +195,10 @@ plot_sol_space <- function(sol_space) {
         )) +
         scale_color_manual(values = c("black", "blue")) +
         scale_shape_manual(values = c(1, 5)) +
+        ylim(0.4, nrow(sol_space$data)+0.4)+
         
         theme_minimal() +
-        labs(x = "community", solution = "")
+        labs(x = "community size", y = "", solution = "") 
     
     #heatmap
     if (nrow(sol_space$data)>=2) {
@@ -229,4 +227,78 @@ plot_sol_space <- function(sol_space) {
     } else {pl4 = NA}
     
     return(list(pl1 = pl1, pl2 = pl2, pl3 = pl3, pl4 = pl4))
+}
+
+
+#' Plot Multiple Solutions from a Solution Space
+#'
+#' The function plot_all_solutions plots all the the solutions from a given solution space on a graph using a grid layout. 
+#' Each plot highlights a different solution with communities highlighted in red. 
+#'
+#' @param g An `igraph` object representing the network graph.
+#' @param sol_space A list containing the solution space. It should include:
+#'   \describe{
+#'     \item{data}{A matrix with rows corresponding to different solutions.}
+#'     \item{M}{A matrix where each column corresponds to the membership of nodes for a given solution.}
+#'   }
+#' @param device A string specifying the output device. Possible values are "screen" (default) and "png".
+#' @param filename A string specifying the file name for saving the plot if `device = "png"`. Default is `NULL`.
+#' @param width Width of the PNG image in pixels. Default is 1600.
+#' @param height Height of the PNG image in pixels. Default is 1600.
+#' @param res Resolution of the PNG image in DPI. Default is 300.
+#' 
+#' @return NULL. This function is called for creating plots.
+#' 
+#' @examples
+#' # Example usage (assume `g` is an igraph object and `sol_space` is defined):
+#' # plot_solutions(g, sol_space)
+#'
+#' @export
+
+
+plot_all_solutions <- function(g, sol_space,
+                           device = "screen", 
+                           filename = NULL, 
+                           width = 1600, height = 1600, res = 300) {
+    
+    
+    # If device is PNG, open the PNG file
+    if (device == "png" && !is.null(filename)) {
+        png(filename, width = width, height = height, res = res)  
+    }
+    
+    ns <- nrow(sol_space$data)
+    
+    # Set up the plotting area
+    par(mfrow = c(ceiling(sqrt(ns)), ceiling(sqrt(ns))),  # Grid layout
+        mar = c(1.0, 0.1, 2.0, 0.1),  # Minimal margins: bottom, left, top, right
+        oma = c(0, 0, 0, 0))        # No outer margins
+    
+    # Plot each solution
+    node_positions <- igraph::layout.fruchterman.reingold(g)
+
+    
+    for (i in 1:ns) {
+        # Extract membership information
+        membership_i <- sol_space$M[, i]
+        
+        # Plot the graph highlighting the i-th solution  
+        plot(g, 
+             layout = node_positions,
+             vertex.size = 30,
+             vertex.color = "white",        
+             mark.groups = split(1:vcount(g), membership_i),          
+             mark.col = rgb(0.5, 0.5, 0.5, alpha = 0.1),   
+             mark.border = 'red',              
+             main = paste("Solution", i)
+        )
+    }
+    
+    # If PNG device was opened, close it
+    if (device == "png") {
+        dev.off()
+    }
+    
+    # Reset to default plotting layout (if plotting to the screen)
+    par(mfrow = c(1, 1), mar = c(5, 4, 4, 2) + 0.1)
 }
