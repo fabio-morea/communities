@@ -7,24 +7,38 @@
 co_occurrence(ssp)
 }
 \arguments{
-\item{ssp}{solution space: a list  containing 3 items:
+\item{ssp}{A list containing the solution space, including community membership
+matrix \code{M} and associated data. The list should have at least the following elements (any further elements are ignored):
 \itemize{
-\item \code{M}: A matrix where each column represents a unique community detection solution. Rows are ordered as the nodes in the input graph. Columns are ordered by decreasing probability (median of confidence intervals).
-\item \code{data}: A dataframe summarizing the features of each solution, including confidence intervals, similarity scores, and grouping based on confidence levels.
-\item \code{simil}: A similarity matrix (using ARI) between the different solutions found.
+\item \code{M}: A matrix where each column represents a solution (trial), and
+each row corresponds to a node. The matrix contains integers representing
+community assignments.
+\item \code{data}: A data frame where rows correspond to the same trials as the
+columns of \code{M}. It should include a \code{valid} logical vector indicating
+whether a trial is valid, and a \code{median} column representing the weight
+for each solution.
 }}
 }
 \value{
 A symmetric matrix \code{D} where each entry represents the weighted co-occurrence count of node pairs across all trials. The matrix shows how often nodes were grouped together in the same community, scaled by the weights in \code{alpha}.
 }
 \description{
-The \code{co_occurrence} function computes a normalized co-occurrence matrix from a set of community detection solutions. It measures how frequently nodes appear together in the same community across multiple trials and weights the co-occurrence by a specified importance factor \code{alpha} for each trial.
+The \code{co_occurrence} function computes a normalized co-occurrence matrix based on the
+solution space provided by the input object \code{ssp}.
+The output matrix indicates the extent to which pairs of nodes appear together in the same community
+across different trials, with weights normalized by the median values of the solutions.
 }
 \details{
+The function filters out invalid trials based on the \code{valid} column in the
+\code{ssp$data} dataframe. It then computes the co-occurrence matrix \code{D} by iterating
+through each trial and identifying pairs of nodes that belong to the same
+community. The contribution of each trial to the co-occurrence matrix is
+weighted by the \code{median} values in the \code{ssp$data} dataframe, normalized by the
+total sum of medians.
+
 The function uses the results of multiple community detection trials stored in \code{M}. For each trial, nodes that belong to the same community are identified, and their co-occurrence count is incremented by the corresponding value from \code{alpha}. The co-occurrence matrix is symmetric, reflecting the fact that if node A co-occurs with node B, then node B also co-occurs with node A.
 }
 \examples{
-D <- co_occurrence(ssp))
-print(co_matrix)
+D <- co_occurrence(ssp)
 
 }
