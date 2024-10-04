@@ -1,29 +1,159 @@
+
 ---
-title: "How to use 'communities' package" 
-output: pdf
+title: "Vignette: create a benchmark network and explore solution space"
+author: "Fabio Morea"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{RIng of Cliques and solution space}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
 ---
 
 # scope
+This vignette illustrates the complete workflow of 'communities' library.
 
 ```{r libraries, message=FALSE, warning=FALSE}
-library(tidyverse)
+# required packages
 library(igraph)
 library(communities)
+
+# additional packages to improve workflow and figures
+library(tidyverse)
+library(patchwork)
 ```
 
 
-# examples
-## create a ring of cliques
+# Benchmark networks
+We start by building a simple benchmark network: a Ring of Cliques (RC) composed of 5 cliques of 6 nodes each. In such a simple case communities are easily identified by any community detection algorithm.
 
-```{r sample1, message=FALSE, warning=FALSE}
-g <- communities::make_ring_of_cliques(num_cliques = 4,
+```{r example1, message=FALSE, warning=FALSE}
+RC_simple <- communities::make_ring_of_cliques(num_cliques = 6,
+                                       clique_size = 5, 
+                                       add_center = F, 
+                                       add_bridges = F)
+partition <- igraph::cluster_louvain(RC_simple)
+plot(partition, RC_simple)
+```
+
+However, RC can be used to produce a network in which community boundaries are less clear. 
+
+```{r example2, message=FALSE, warning=FALSE}
+RC_c <- communities::make_ring_of_cliques(num_cliques = 4,
                                        clique_size = 6, 
                                        add_center = T, 
-                                       add_bridges = T)
-plot(g)
+                                       add_bridges = F)
 
+node_positions <- igraph::layout.fruchterman.reingold(RC_c)
+partition <- igraph::cluster_louvain(RC_c)
+plot(partition, RC_c, layout = node_positions)
 
 ```
+The central node can either belong to any of the cliques or be considered its own single-node community. This presents a challenge for both algorithms and human analysts alike, as it creates ambiguity in community assignment. Consequently, we can anticipate five equally probable solutions, where the central node is equally likely to be associated with any of the cliques.
+
+```{r example1, message=FALSE, warning=FALSE}
+#explore the solution space
+sol_space <- communities::solutions_space(RC_c, 
+                                          n_trials = 100,
+                                          met = "LV")
+sol_space <- communities::quality_check(RC_c, sol_space)
+plots<-communities::plot_sol_space(sol_space)
+plots$pl2
+plots$pl3
+```
+
+```{r}
+plot_solutions <- function(g, sol_space,
+                           device = "screen", 
+                           filename = NULL, 
+                           width = 1600, height = 1600, res = 300) {
+  
+  # If device is PNG, open the PNG file
+  if (device == "png" && !is.null(filename)) {
+    png(filename, width = width, height = height, res = res)  
+  }
+  
+  # Set up the plotting area
+  par(mfrow = c(ceiling(sqrt(ns)), ceiling(sqrt(ns))),  # Grid layout
+      mar = c(1.0, 0.1, 2.0, 0.1),  # Minimal margins: bottom, left, top, right
+      oma = c(0, 0, 0, 0))        # No outer margins
+
+  # Plot each solution
+  node_positions <- igraph::layout.fruchterman.reingold(g)
+  ns <- nrow(sol_space$data)
+  
+  for (i in 1:ns) {
+    # Extract membership information
+    membership_i <- sol_space$M[, i]
+    
+    # Plot the graph highlighting the i-th solution  
+    plot(RC_c, 
+         layout = node_positions,
+         vertex.size = 30,
+         vertex.color = "white",        
+         mark.groups = split(1:vcount(g), membership_i),          
+         mark.col = rgb(0.5, 0.5, 0.5, alpha = 0.1),   
+         mark.border = 'red',              
+         main = paste("Solution", i)
+    )
+  }
+
+  # If PNG device was opened, close it
+  if (device == "png") {
+    dev.off()
+  }
+
+  # Reset to default plotting layout (if plotting to the screen)
+  par(mfrow = c(1, 1), mar = c(5, 4, 4, 2) + 0.1)
+}
+
+# ---- Step 1: Plot on screen ----
+plot_solutions(RC_c, sol_space)  # Plot to the screen
+
+# ---- Step 2: Save to PNG file ----
+plot_solutions(RC_c, sol_space, 
+               device = "png", 
+               filename = "solution_plots.png")
+```
+
+
+
+#add quality check 
+sol_space <- communities::quality_check(g, sol_space)
+
+#plot
+plots <- plot_sol_space(sol_space)
+
+plots$pl2+theme(legend.position = 'none')+ggtitle('Frequency of solutions')
+plots$pl3+theme(legend.position = 'none')+ggtitle('Community size distribution')
+
+
+partition_i = sol_space$M[,i]
+plot(partition, RC_c, layout = node_positions)
+ 
+```
+The solution space shows that there are 6 solutions, they are all equally likely (the confidence intervals are overlapping).
+
+## input ordering bias
+In the example above, the network was shuffled before each run of the community detection algorithm to help mitigate input ordering bias. To highlight the importance of this, we can repeat the experiment with the 'shuffle' parameter set to FALSE. In this case, community detection will be performed on the network exactly as it was provided, which is influenced by the order in which nodes and edges are sorted in the original data. Although in theory this should not impact the results (since graphs are inherently unordered mathematical objects), it does. This is because the software representation of networks is inherently ordered—whether in the form of a list, array, dataset, or other sequential data structure.
+
+
+```{r example1, message=FALSE, warning=FALSE}
+#explore the solution space
+sol_space <- communities::solutions_space(g2, 
+                                          n_trials = 100,
+                                          met = "LV", 
+                                          shuffle = FALSE)
+#add quality check 
+sol_space <- communities::quality_check(g, sol_space)
+
+#plot
+plots <- plot_sol_space(sol_space)
+
+plots$pl2+theme(legend.position = 'none')+ggtitle('Frequency of solutions - ORDER BIAS')
+plots$pl3+theme(legend.position = 'none')+ggtitle('Community size distribution  - ORDER BIAS')
+ 
+```
+In this case, only three distinct solutions were found, with one being significantly more frequent than the others. The ring of cliques represents an extreme case that clearly illustrates this issue. However, input ordering bias can occur with any network, not just in this specific example. For this reason, the shuffle parameter is set to TRUE by default, ensuring that the results are less dependent on the original input order.
 
 
 ## explore solutions space
