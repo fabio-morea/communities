@@ -267,6 +267,7 @@ plot_all_solutions <- function(g, sol_space,
     }
 
     ns <- nrow(sol_space$data)
+
     
     # Set up the plotting area
     par(mfrow = c(ceiling(sqrt(ns)), ceiling(sqrt(ns))),  # Grid layout
@@ -275,17 +276,15 @@ plot_all_solutions <- function(g, sol_space,
     
     # Plot each solution
     node_positions <- igraph::layout.fruchterman.reingold(g)
- 
- 
+
     
     for (i in 1:ns) {
         # Extract membership information
         membership_i <- sol_space$M[, i]
         
         # Plot the graph highlighting the i-th solution  
- 
+
         plot(RC_c, 
- 
              layout = node_positions,
              vertex.size = 30,
              vertex.color = "white",        
