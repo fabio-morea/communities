@@ -261,12 +261,11 @@ plot_all_solutions <- function(g, sol_space,
                            filename = NULL, 
                            width = 1600, height = 1600, res = 300) {
     
-    
     # If device is PNG, open the PNG file
     if (device == "png" && !is.null(filename)) {
         png(filename, width = width, height = height, res = res)  
     }
-    
+
     ns <- nrow(sol_space$data)
     
     # Set up the plotting area
@@ -276,14 +275,17 @@ plot_all_solutions <- function(g, sol_space,
     
     # Plot each solution
     node_positions <- igraph::layout.fruchterman.reingold(g)
-
+ 
+ 
     
     for (i in 1:ns) {
         # Extract membership information
         membership_i <- sol_space$M[, i]
         
         # Plot the graph highlighting the i-th solution  
-        plot(g, 
+ 
+        plot(RC_c, 
+ 
              layout = node_positions,
              vertex.size = 30,
              vertex.color = "white",        

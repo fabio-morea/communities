@@ -17,7 +17,7 @@ bayesian_new_1 <- function(prior){
     posterior <- prior
     n = posterior$a[1] + posterior$b[1] - 2
     posterior <- rbind(posterior, data.frame(a = 2, b = n))
-    posterior$b <- posterior$b + 1 
+    posterior$b <- posterior$b + 1
     return(posterior)
 }
 
@@ -29,6 +29,7 @@ bayesian_new_1 <- function(prior){
 #'
 #' @param g An iGraph object representing the network on which community detection will be performed.
 #' @param n_trials An integer specifying the number of trials to run for community detection.
+#' #' @param tau: A value between 0.0 and 1.0 specifying the threshold of stability of the solution space. When p_stable >= tau, the solution spaces is considered stable, i.e. the probability of a nwe solution to be found at the next trial is below tau. and thethe explorarion is terminated. Default value is 0.95.
 #' @param met A string specifying the community detection method to use. Available options include:
 #'   - `"IM"`: Infomap
 #'   - `"WT"`: Walktrap
@@ -57,13 +58,14 @@ bayesian_new_1 <- function(prior){
 #'
 #' @examples
 #' # Run 10 trials of the Louvain method and explore the solution space
-#' solution_space <- solutions_space(g, n_trials = 10, met = 'LV', comp_method = 'ami')
+#' solution_space <- solutions_space(g, n_trials = 10, tau = 0.9, met = 'LV', comp_method = 'ami')
 #' print(solution_space$data)
 #'
 #' @export
 solutions_space <-
     function(g,
-             n_trials,
+             n_trials = 100,
+             tau = 0.95, 
              met = 'IM',
              shuffle = TRUE,
              comp_method = 'ami',
@@ -78,6 +80,7 @@ solutions_space <-
         ns <- 0
         
         prior <- data.frame(a = 1, b = 1) # no trials, no info
+        log = data.frame()
         
         for (t in 1:n_trials) {
             if (shuffle == TRUE) {
@@ -125,8 +128,7 @@ solutions_space <-
                 if (sim_score < 1) {
                     #it's a new solution
                     ns <- ns + 1
-                    M <-
-                        cbind(M, membership[match(V(g)$name, V(gs)$name)])
+                    M <- cbind(M, membership[match(V(g)$name, V(gs)$name)])
                     posterior <- bayesian_new_1(posterior)
                 }
                 
@@ -152,6 +154,17 @@ solutions_space <-
             
             prior <- posterior
             
+            # save the results at each iteration in the log dataframe
+            log <- rbind(log, posterior %>% select(a, b) %>%
+                             mutate(s = 1:nrow(posterior)))
+            
+            # exit the for loop before t_max in case the solution is stable
+            p_stable = (t-ns)/(t+1)
+            
+            if (p_stable > tau){
+                print(paste("Exit at t = ", t, "pstable = ", p_stable))
+                print(posterior)
+                break}
         }#end for
         
         #results <- results %>% filter(a > 0) #remove empty lines
@@ -200,7 +213,8 @@ solutions_space <-
         return(list(
             M = M[, order(-posterior$a)],
             data = results,
-            simil = similarity_matrix
+            simil = similarity_matrix, 
+            log = log
         ))
     }
 

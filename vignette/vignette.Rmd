@@ -9,6 +9,7 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
+
 # scope
 This vignette illustrates the complete workflow of 'communities' library.
 
@@ -19,7 +20,7 @@ library(communities)
 
 # additional packages to improve workflow and figures
 library(tidyverse)
-library(patchwork)
+library(gridExtra)
 ```
 
 
@@ -32,7 +33,10 @@ RC_simple <- communities::make_ring_of_cliques(num_cliques = 5,
                                        add_center = F, 
                                        add_bridges = F)
 partition <- igraph::cluster_louvain(RC_simple)
+
 plot(partition, RC_simple)
+
+
 ```
 
 However, RC can be used to produce a network in which community boundaries are less clear. 
@@ -43,8 +47,9 @@ RC_c <- communities::make_ring_of_cliques(num_cliques = 4,
                                        add_center = T, 
                                        add_bridges = F)
 
-node_positions <- igraph::layout.fruchterman.reingold(RC_c)
 partition <- igraph::cluster_louvain(RC_c)
+
+node_positions <- igraph::layout.fruchterman.reingold(RC_c)
 plot(partition, RC_c, layout = node_positions)
 
 ```
@@ -56,25 +61,25 @@ sol_space <- communities::solutions_space(RC_c,
                                           n_trials = 100,
                                           met = "LV")
 sol_space <- communities::quality_check(RC_c, sol_space)
+
 plots<-communities::plot_sol_space(sol_space)
-plots$pl2
-plots$pl3
+
+p2<-plots$pl2+ theme(legend.position = 'none', aspect.ratio = 1)
+p3<-plots$pl3+ theme(legend.position = 'none', aspect.ratio = 1)
+
+grid.arrange(p2,p3, ncol = 2)
+
+
+
+
 ```
 
 ```{r}
 
 communities::plot_all_solutions(RC_c, sol_space)   
-
-communities::plot_all_solutions(RC_c, sol_space, 
-               device = "png", 
-               filename = ".\solution_plots.png")
+ 
 ```
 
- 
- 
-
-
-The solution space shows that there are 6 solutions, they are all equally likely (the confidence intervals are overlapping).
 
 ## input ordering bias
 In the example above, the network was shuffled before each run of the community detection algorithm to help mitigate input ordering bias. To highlight the importance of this, we can repeat the experiment with the 'shuffle' parameter set to FALSE. In this case, community detection will be performed on the network exactly as it was provided, which is influenced by the order in which nodes and edges are sorted in the original data. Although in theory this should not impact the results (since graphs are inherently unordered mathematical objects), it does. This is because the software representation of networks is inherently ordered—whether in the form of a list, array, dataset, or other sequential data structure.
@@ -82,133 +87,135 @@ In the example above, the network was shuffled before each run of the community 
 
 ```{r example1, message=FALSE, warning=FALSE}
 #explore the solution space
-sol_space <- communities::solutions_space(g2, 
+sol_space_biased <- communities::solutions_space(RC_c, 
                                           n_trials = 100,
                                           met = "LV", 
                                           shuffle = FALSE)
 #add quality check 
-sol_space <- communities::quality_check(g, sol_space)
+sol_space_biased <- communities::quality_check(RC_c, sol_space_biased)
 
 #plot
-plots <- plot_sol_space(sol_space)
+plots_biased <- plot_sol_space(sol_space_biased)
 
-plots$pl2+theme(legend.position = 'none')+ggtitle('Frequency of solutions - ORDER BIAS')
-plots$pl3+theme(legend.position = 'none')+ggtitle('Community size distribution  - ORDER BIAS')
- 
+p2b<-plots_biased$pl2+theme(legend.position = 'none')
+p3b<-plots_biased$pl3+theme(legend.position = 'none')
+
+communities::plot_all_solutions(RC_c, sol_space_biased) 
+
+grid.arrange(p2b,p3b, ncol = 2)
+
+
 ```
 In this case, only three distinct solutions were found, with one being significantly more frequent than the others. The ring of cliques represents an extreme case that clearly illustrates this issue. However, input ordering bias can occur with any network, not just in this specific example. For this reason, the shuffle parameter is set to TRUE by default, ensuring that the results are less dependent on the original input order.
 
-
-## explore solutions space
+# consensus community detection on unbiased solutions
 ```{r}
 
-
-
-sol_space <- communities::solutions_space(g, 
+sol_space <- communities::solutions_space(RC_c, 
                                           n_trials = 100,
-                                          shuffle = TRUE,
-                                          met = "IM", 
-                                          IM.nb.trials = 1,
-                                          confidence = 0.95,  
-                                          comp_method = "ami")
-
-sol_space <- communities::quality_check(g, sol_space)
-plot_sol_space(sol_space)
-
-df <- sol_space$data
-M <- sol_space$M 
-plot(make_clusters(g, M[,1]),g)
-plot(make_clusters(g, M[,2]),g)
-plot(make_clusters(g, M[,3]),g)
-plot(make_clusters(g, M[,4]),g)
-
-
+                                          met = "LV")
+sol_space <- communities::quality_check(RC_c, sol_space)
  
-sm <- sol_space$simil
-print(paste("non valid solutions: ",sum(df$valid==FALSE)))
-print(paste("valid solutions: ",sum(df$valid==TRUE)))
-
-#sol_space$data <- sol_space$data %>% filter(valid == TRUE)
-
-
-sim_score_solutions <- rowMeans(sol_space$simil, na.rm = T)
-print(sim_score_solutions)
-
-overall_similarity<-mean(sol_space$simil, na.rm = T)
-print(paste("Mean similarity score = ", overall_similarity))
-hist(sol_space$simil)
+D <- communities::co_occurrence(sol_space)
  
+        
+comms <- communities::consensus_communities(D, p =.8)
+        
+        #aggregate singletons in community 0
+        #comms$community[ comms$community_size == 1] <- 0
+        #
+  
+        
+nc <- max(comms$cons_comm_label)
+V(RC_c)$community <- comms$cons_comm_label
+V(RC_c)$gamma <- comms$gamma %>% round(2)
+
+node_positions <- igraph::layout.fruchterman.reingold(RC_c)
+
+
+par(mfrow = c(1,2),  # Grid layout
+        mar = c(1.0, 1.0, 2.0, 1.0),  #  inner margins: bottom, left, top, right
+        oma = c(0, 1.0, 0, 1.00))          #  outer margins: bottom, left, top, right
+
+plot(RC_c, 
+     layout = node_positions,
+     vertex.size = 30,
+     vertex.color = "white",
+     vertex.label = paste("C",V(RC_c)$community),
+     vertex.label.cex = 0.5,   
+     vertex.label.color = "black",  
+     vertex.label.family = "sans",  
+     mark.groups = split(1:vcount(RC_c), V(RC_c)$community ),          
+     mark.col = rgb(0.5, 0.5, 0.5, alpha = 0.1),   
+     mark.border = 'red',              
+     main = "membership"
+     )
+     
+
+plot(RC_c, 
+     layout = node_positions,
+     vertex.size = 30,
+     vertex.label = V(RC_c)$gamma ,
+     vertex.label.cex = 0.5,   
+     vertex.label.color = "black",  
+     vertex.label.family = "sans",  
+     vertex.color = if_else(V(RC_c)$gamma > 0.5, "yellow", "lightgreen"),
+     mark.groups = split(1:vcount(RC_c), V(RC_c)$community ),          
+     mark.col = rgb(0.5, 0.5, 0.5, alpha = 0.1),   
+     mark.border = 'red',              
+     main = "uncertainty"
+     )
+par(mfrow = c(1, 1), mar = c(5, 4, 4, 2) + 0.1, oma = c(0,0,0,0))
+ 
+ 
+
 ```
 
- 
-
-  
+# testing solution space params
+In this case we set a maximum number of trials at 500, and tau = 0.90 ie we want to stop searching for new solutions when the probability of a stable solution space is .90
 
 ```{r}
-g <- communities::make_ring_of_cliques(num_cliques = 10,
+sol_space <- communities::solutions_space(RC_c, 
+                                          n_trials = 500,
+                                          tau = 0.9,
+                                          met = "LV")
+logdata<-sol_space$log
+last <- logdata %>% tail(1) 
+t = last$a + last$b -2
+ns = last$s
+p_stable = (t-ns)/(t+1)
+p_stable
+```
+something different occurs when there are multiple solutions
+If we set tmax = 100, the probability of a complete solution space is low, around 0.75
+set higher tmax and exit when p = 0.90
+ie at t = 210
+
+```{r}
+
+RC_cb <- communities::make_ring_of_cliques(num_cliques = 5,
                                        clique_size = 5, 
                                        add_center = T, 
-                                       add_bridges = F)
-ssp <- communities::solutions_space(g, n_trials = 20, met = "WT", confidence = .9) 
-ssp <- communities::quality_check(g, ssp)
+                                       add_bridges = T)
 
-ssp$data
-#ssp$M
-plot_sol_space(ssp)
+plot(RC_cb)
+
+sol_space <- communities::solutions_space(RC_cb, 
+                                          n_trials = 200,
+                                          tau = 0.9,
+                                          met = "LV")
+
+logdata<-sol_space$log
+last <- logdata %>% tail(1) 
+t = last$a + last$b -2
+ns = last$s
+p_stable = (t-ns)/(t+1)
+p_stable
+
+sol_space <- quality_check(RC_cb, sol_space )
+plot_sol_space(sol_space )
 ```
 
-
-```{r}
-communities::solutions_space(g, n_trials = 100, met = "WT",  comp_method = "ari", confidence = 0.95) %>% 
-  plot_sol_space()
-
-  
-
-```
-
-```{r}
-ssp1 <- communities::solutions_space(g, n_trials = 20, met = "LD", resolution = 0.9, comp_method = 'ami')
-ssp2 <- communities::solutions_space(g, n_trials = 20, met = "LD", resolution = 0.9, comp_method = 'ari') 
-
-ssp1$data
-ssp2$data
-
-```
-
-
-```{r}
-plot(g)
-ssp<-communities::solutions_space(g, n_trials = 100, met = "WT", comp_method = "ami") 
-plot_sol_space(ssp)
-sim_score_solutions <- rowMeans(ssp$simil, na.rm = T)
-print(sim_score_solutions)
-
-overall_similarity<-mean(ssp$simil, na.rm = T)
-print(paste("Mean similarity score = ", overall_similarity))
-
-```
-
-```{r}
-random_graph <- erdos.renyi.game(100, p=0.5, type = "gnp")
-V(random_graph)$name <- 1:vcount(random_graph)
-
-
-random_ssp <- communities::solutions_space(random_graph, n_trials = 50, met = "LD", 
-                                           comp_method = "ami", confidence = .9)
-random_ssp <- communities::quality_check(random_graph, random_ssp)
-
-df<-random_ssp$data
-print(paste("non valid solutions: ",sum(df$valid==FALSE)))
-print(paste("valid solutions: ",sum(df$valid==TRUE)))
  
-plot_sol_space(random_ssp)
-
-sim_score_solutions <- rowMeans(random_ssp$simil, na.rm = T)
-print(sim_score_solutions)
-
-overall_similarity<-mean(random_ssp$simil, na.rm = T)
-print(paste("Mean similarity score = ", overall_similarity))
-
-
-```
+   
  

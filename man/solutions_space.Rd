@@ -6,7 +6,8 @@
 \usage{
 solutions_space(
   g,
-  n_trials,
+  n_trials = 100,
+  tau = 0.95,
   met = "IM",
   shuffle = TRUE,
   comp_method = "ami",
@@ -19,7 +20,8 @@ solutions_space(
 \arguments{
 \item{g}{An iGraph object representing the network on which community detection will be performed.}
 
-\item{n_trials}{An integer specifying the number of trials to run for community detection.}
+\item{n_trials}{An integer specifying the number of trials to run for community detection.
+#' @param tau: A value between 0.0 and 1.0 specifying the threshold of stability of the solution space. When p_stable >= tau, the solution spaces is considered stable, i.e. the probability of a nwe solution to be found at the next trial is below tau. and thethe explorarion is terminated. Default value is 0.95.}
 
 \item{met}{A string specifying the community detection method to use. Available options include:
 \itemize{
@@ -66,7 +68,7 @@ The function supports several popular community detection algorithms, and it all
 }
 \examples{
 # Run 10 trials of the Louvain method and explore the solution space
-solution_space <- solutions_space(g, n_trials = 10, met = 'LV', comp_method = 'ami')
+solution_space <- solutions_space(g, n_trials = 10, tau = 0.9, met = 'LV', comp_method = 'ami')
 print(solution_space$data)
 
 }
