@@ -258,30 +258,33 @@ solutions_space <-
 #' @export
 co_occurrence <- function(ssp) {
     # calculates normalized co-occurrence matrix from solution space
+    # 
     
+    #keep only valid results
     keep_valid_results = ssp$data$valid  
     M <- ssp$M[, keep_valid_results]
     sspdata<-ssp$data[ keep_valid_results,]
     
-    # weight of each solution
+    # weight of each solution 
     alpha <- sspdata$median / sum(sspdata$median) 
     
-    n_trials <- nrow(sspdata)
+    # initialize co-occurrence matrix D
     n_nodes <- nrow(M)
     D <- matrix(0, nrow = n_nodes, ncol = n_nodes)
     rownames(D) <- rownames(M)
     colnames(D) <- rownames(M)
     
-    for (t in (1:n_trials)) {
-        print(t)
+    # calculate co-occurrence
+    n_solutions <- nrow(sspdata)
+    for (t in (1:n_solutions)) {
         n_comms <- max(M[, t])
         for (k in 1:n_comms) {
-            same_comm <- (which(M[, t] == k))
-            nc <- length(same_comm)
+            comm_members <- which(M[, t] == k)
+            nc <- length(comm_members)
             for (i in 1:nc) {
                 for (j in (i+1):nc) {
-                    D[same_comm[j], same_comm[i]] <- D[same_comm[j], same_comm[i]] + alpha[t]
-                    D[same_comm[i], same_comm[j]] <- D[same_comm[j], same_comm[i]]
+                    D[comm_members[j], comm_members[i]] <- D[comm_members[j], comm_members[i]] + alpha[t]
+                    D[comm_members[i], comm_members[j]] <- D[comm_members[j], comm_members[i]]
                 }
             }
         }
