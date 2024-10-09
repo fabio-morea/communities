@@ -256,17 +256,18 @@ plot_sol_space <- function(sol_space) {
 #' @export
 
 
-plot_all_solutions <- function(g, sol_space,
+plot_solutions <- function(g, ssp, 
                            device = "screen", 
                            filename = NULL, 
                            width = 1600, height = 1600, res = 300) {
+    
     
     # If device is PNG, open the PNG file
     if (device == "png" && !is.null(filename)) {
         png(filename, width = width, height = height, res = res)  
     }
 
-    ns <- nrow(sol_space$data)
+    ns <- nrow(ssp$data)
 
     
     # Set up the plotting area
@@ -280,11 +281,15 @@ plot_all_solutions <- function(g, sol_space,
     
     for (i in 1:ns) {
         # Extract membership information
-        membership_i <- sol_space$M[, i]
+        if (ns == 1){
+            membership_i <- ssp$M
+        } else {
+            membership_i <- ssp$M[, i]  
+        }
         
         # Plot the graph highlighting the i-th solution  
 
-        plot(RC_c, 
+        plot(g, 
              layout = node_positions,
              vertex.size = 30,
              vertex.color = "white",        
