@@ -14,7 +14,8 @@ solutions_space(
   confidence = 0.95,
   resolution = 1,
   IM.nb.trials = 10,
-  WT.steps = 3
+  WT.steps = 3,
+  verbose = TRUE
 )
 }
 \arguments{

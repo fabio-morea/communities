@@ -20,16 +20,14 @@ library(communities)
 
 # additional packages to improve workflow and figures
 library(tidyverse)
-
 library(gridExtra)
-
 library(patchwork)
 ```
 
 
 # Benchmark networks
 We start by building a simple benchmark network: a Ring of Cliques (RC) composed of 5 cliques of 6 nodes each. In such a simple case communities are easily identified by any community detection algorithm.
-<<<<<<< HEAD
+ 
 
 ```{r example1, message=FALSE, warning=FALSE}
 RC_simple <- communities::make_ring_of_cliques(num_cliques = 5,
@@ -54,7 +52,7 @@ RC_c <- communities::make_ring_of_cliques(num_cliques = 4,
 node_positions <- igraph::layout.fruchterman.reingold(RC_c)
 partition <- igraph::cluster_louvain(RC_c)
 plot(partition, RC_c, layout = node_positions)
->>>>>>> 61143a8c36e979b6c714cbfa29cf3bb531426603
+ 
 
 ```
 The central node can either belong to any of the cliques or be considered its own single-node community. This presents a challenge for both algorithms and human analysts alike, as it creates ambiguity in community assignment. Consequently, we can anticipate five equally probable solutions, where the central node is equally likely to be associated with any of the cliques.
@@ -62,8 +60,9 @@ The central node can either belong to any of the cliques or be considered its ow
 ```{r example1, message=FALSE, warning=FALSE}
 #explore the solution space
 sol_space <- communities::solutions_space(RC_c, 
-                                          n_trials = 100,
-                                          met = "LV")
+                                          n_trials = 200,
+                                          met = "LV", 
+                                          tau = .95)
 sol_space <- communities::quality_check(RC_c, sol_space)
 plots<-communities::plot_sol_space(sol_space)
 plots$pl2

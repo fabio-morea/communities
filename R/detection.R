@@ -1,24 +1,27 @@
 
-bayesian_update_1 <- function(prior, selected){
+bayesian_update_model <- function(prior, selected){
     # a, b: Parameters of the prior Beta(a, b) distribution
     # i: index of  solution that will be updates
     posterior <- prior
     for (i in 1:nrow(prior)){
         if (i == selected){
-            posterior$a[i] <- prior$a[i] + 1
+            # increment success count for the solution found
+            posterior$a[i] <- prior$a[i] + 1 
         } else {
+            # increment failure count for all other solutions
             posterior$b[i] <- prior$b[i]  + 1
         }
     }
     return(posterior)
 }
 
-bayesian_new_1 <- function(prior){
-    posterior <- prior
-    n = posterior$a[1] + posterior$b[1] - 2
-    posterior <- rbind(posterior, data.frame(a = 2, b = n))
-    posterior$b <- posterior$b + 1
-    return(posterior)
+bayesian_add_new_solution <- function(prior){
+    # updates the prior distribution adding a new solution
+    # the number of trials is embedded in the prior
+    t = prior$a[1] + prior$b[1] - 1
+    # add a new beta for the new solution
+    prior <- rbind(prior, data.frame(a = 1, b = t))
+    return(prior)
 }
 
 
@@ -68,18 +71,19 @@ solutions_space <-
              tau = 0.95, 
              met = 'IM',
              shuffle = TRUE,
-             comp_method = 'ami',
-             #ari
+             comp_method = 'ami',#ari
              confidence = .95,
              resolution = 1.0,
              IM.nb.trials = 10,
-             WT.steps = 3) {
+             WT.steps = 3, 
+             verbose = TRUE) {
+        
         M <- matrix(NA, nrow = vcount(g), ncol = 1)
         rownames(M) <- V(g)$name
         S <- matrix(0.0,  nrow = n_trials, ncol = n_trials)
         ns <- 0
         
-        prior <- data.frame(a = 1, b = 1) # no trials, no info
+        prior <- data.frame(a = 1, b = 1) # uninformative prior: no trials, no info
         log = data.frame()
         
         for (t in 1:n_trials) {
@@ -106,10 +110,10 @@ solutions_space <-
                 # first solution found
                 M[, 1] <- membership[match(V(g)$name, V(gs)$name)]
                 ns <- 1
-                posterior <- bayesian_update_1(prior, 1)
-                
+                posterior <- bayesian_update_model(prior, 1)
+
             } else {
-                # check if already exists
+                # further trials: check if the solution is new
                 for (i in 1:ns) {
                     sim_score <- switch(
                         comp_method,
@@ -119,19 +123,23 @@ solutions_space <-
                     )
                     
                     if (sim_score == 1) {
-                        #we already have this solution
-                        posterior <- bayesian_update_1(posterior, i)
+                        # we already have this solution
+                        posterior <- bayesian_update_model(prior, i)
+ 
                         break # no need to explore further
                     }
                 }#end for
                 
                 if (sim_score < 1) {
-                    #it's a new solution
+                    # it's a new solution
                     ns <- ns + 1
                     M <- cbind(M, membership[match(V(g)$name, V(gs)$name)])
-                    posterior <- bayesian_new_1(posterior)
+                    prior <- bayesian_add_new_solution(prior)
+                    posterior <- bayesian_update_model(prior, ns)
+ 
+                    
                 }
-                
+                # bayesian update
                 results <- posterior %>%
                     mutate(lower = NA,
                            upper = NA,
@@ -162,9 +170,9 @@ solutions_space <-
             p_stable = (t-ns)/(t+1)
             
             if (p_stable > tau){
-                print(paste("Exit at t = ", t, "pstable = ", p_stable))
-                print(posterior)
-                break}
+                if (verbose) {print(paste("Exit at t = ", t))}
+                 break
+                }
         }#end for
         
         #results <- results %>% filter(a > 0) #remove empty lines
@@ -209,6 +217,10 @@ solutions_space <-
         
         rownames(similarity_matrix) <- results$id
         colnames(similarity_matrix) <- results$id
+        
+        if (verbose) {print(paste("pstable = ", p_stable))}
+        
+        
         
         return(list(
             M = M[, order(-posterior$a)],
