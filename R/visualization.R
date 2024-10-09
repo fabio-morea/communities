@@ -163,7 +163,7 @@ plot_sol_space <- function(sol_space) {
         
         labs(x = "frequency of solutions",
              y = "solution")   +
-        theme_minimal() 
+        theme_minimal()
     
     # 3 ######################### 
     nn <- nrow(sol_space$data)
@@ -203,26 +203,33 @@ plot_sol_space <- function(sol_space) {
     #heatmap
     if (nrow(sol_space$data)>=2) {
         
-    
-    simil_df <- as.data.frame(sol_space$simil)
+    simil_df <- as.data.frame(ssp$simil)
     simil_df$Partition1 <- rownames(simil_df)
     simil_long <- simil_df %>%
-        pivot_longer(cols = -Partition1, names_to = "Partition2", values_to = "similarity")
+            pivot_longer(cols = -Partition1, names_to = "Partition2", values_to = "similarity") %>%
+        filter(similarity >= 0)
     
+    simil_long <- simil_long %>% filter(Partition1 >= Partition2) # upper tri
     simil_long <- simil_long %>%
-        mutate(Partition1 = factor(Partition1, levels = unique(Partition1)),
-               Partition2 = factor(Partition2, levels = unique(Partition2)))
+            mutate(Partition1 = factor(Partition1, levels = unique(Partition1)),
+                   Partition2 = factor(Partition2, levels = unique(Partition2)))
     
     pl4 <-  ggplot(simil_long, aes(x = Partition2, y = Partition1, fill = similarity)) +
-        geom_tile() +
-        #scale_fill_gradient(low = "white",  high = "darkgreen", limits = c(0, 1)) +
+        geom_tile(color = "white", size = 0.5) +  # Add thin white border around the tiles
         scale_fill_distiller(palette = "PiYG", direction = 1, limits = c(0, 1), 
-                             na.value = "white", 
-                             guide = "colorbar") +
-        labs(x = "solutions", y = "solutions", title = "Heatmap of Similarity Matrix") +
-        theme_minimal() +
-        theme(axis.text.x = element_text(angle = 90, hjust = 1),
-              axis.text.y = element_text(hjust = 1))+ theme(aspect.ratio = 1.0)
+                             na.value = "white", guide = "colorbar") +
+        labs(x = "Solutions", y = "Solutions", title = "Heatmap of Similarity Matrix") +
+        theme_minimal(base_size = 14) +  # Slightly increase base font size for clarity
+        theme(
+            axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),  # Align x-axis text vertically
+            axis.text.y = element_text(hjust = 1),
+            plot.title = element_text(hjust = 0.5, face = "bold"),  # Center the title and make it bold
+            axis.title.x = element_text(margin = margin(t = 10)),  # Add margin for x-axis label
+            axis.title.y = element_text(margin = margin(r = 10)),  # Add margin for y-axis label
+            legend.position = "right",  # Move the legend to the right
+            legend.title = element_blank()  # Remove the legend title
+        ) +
+        theme(aspect.ratio = 1.0)  # Keep the plot square
     
     } else {pl4 = NA}
     
@@ -321,10 +328,12 @@ plot_solutions <- function(g, ssp,
     
     # Reset to default plotting layout (if plotting to the screen)
     par(mfrow = c(1, 1), mar = c(5, 4, 4, 2) + 0.1)
+    
+    
 }
 
 #' @export
-plot_sol_space_evolution <- function(ssp, confidence){
+plot_sol_space_evolution <- function(ssp, confidence, add_ribbon_color = TRUE){
     x = (1 - confidence) / 2
     df <- ssp$log %>% 
         mutate(p = a/(a+b)) %>%
@@ -332,11 +341,14 @@ plot_sol_space_evolution <- function(ssp, confidence){
         mutate(lo = qbeta(x, a, b)) %>%
         mutate(s = as.factor(s))
     
-    pl <- df %>% ggplot() +
-        geom_line(aes(x = t, y = p, group = s, color = s)) +
-        geom_ribbon(aes(x = t, ymin = lo, ymax = up, fill = s, ), linewidth = 3, alpha = 0.1) +
+    pl <- df %>% ggplot(aes(x = t, y = p, group = s, color = s)) +
+        geom_line(linewidth = 1) +
+        geom_point(size = 2) +
         ylim(0.0, 1.0) +
+        geom_hline(yintercept = 0.0)+
+        geom_hline(yintercept = 1.0)+
         theme_minimal()
     
+    if (add_ribbon_color) {pl <- pl + geom_ribbon(aes(x = t, ymin = lo, ymax = up, fill = s ), alpha = 0.1) }
     return(pl)
 }
