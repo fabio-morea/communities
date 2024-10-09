@@ -7,6 +7,9 @@
 plot_solutions(
   g,
   ssp,
+  add_node_labels = TRUE,
+  add_prob_labels = TRUE,
+  add_title = TRUE,
   device = "screen",
   filename = NULL,
   width = 1600,

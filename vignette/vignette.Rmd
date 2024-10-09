@@ -58,16 +58,47 @@ plot(partition, RC_c, layout = node_positions)
 The central node can either belong to any of the cliques or be considered its own single-node community. This presents a challenge for both algorithms and human analysts alike, as it creates ambiguity in community assignment. Consequently, we can anticipate five equally probable solutions, where the central node is equally likely to be associated with any of the cliques.
 
 ```{r example1, message=FALSE, warning=FALSE}
+RC_b <- communities::make_ring_of_cliques(num_cliques = 4,
+                                       clique_size = 6, 
+                                       add_center = F, 
+                                       add_bridges = T)
+
+node_positions <- igraph::layout.fruchterman.reingold(RC_b)
+partition <- igraph::cluster_louvain(RC_b)
+plot(partition, RC_b, layout = node_positions)
 #explore the solution space
+sol_space <- communities::solutions_space(RC_b, 
+                                          n_trials = 1000,
+                                          met = "LV", 
+                                          tau = .95)
+sol_space <- communities::quality_check(RC_b, sol_space)
+plots<-communities::plot_sol_space(sol_space)
+plots$pl2
+plots$pl3
+communities::plot_solutions(RC_b, sol_space, add_node_labels = F, add_prob_labels = TRUE)
+ 
+communities::plot_sol_space_evolution(sol_space, confidence = .90) 
+        
+```
+
+
+```{r}
+
 sol_space <- communities::solutions_space(RC_c, 
-                                          n_trials = 200,
+                                          n_trials = 1000,
                                           met = "LV", 
                                           tau = .95)
 sol_space <- communities::quality_check(RC_c, sol_space)
 plots<-communities::plot_sol_space(sol_space)
 plots$pl2
 plots$pl3
+ 
+
+communities::plot_sol_space_evolution(sol_space, confidence = .90) 
+
 ```
+
+
 
 ```{r}
 plot_solutions <- function(g, sol_space,

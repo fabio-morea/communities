@@ -163,8 +163,11 @@ solutions_space <-
             prior <- posterior
             
             # save the results at each iteration in the log dataframe
-            log <- rbind(log, posterior %>% select(a, b) %>%
-                             mutate(s = 1:nrow(posterior)))
+            newdata<- posterior %>% select(a, b) %>%
+                mutate(s = 1:nrow(posterior)) %>% 
+                mutate(t = t)
+            log <- rbind(log, newdata)
+                
             
             # exit the for loop before t_max in case the solution is stable
             p_stable = (t-ns)/(t+1)

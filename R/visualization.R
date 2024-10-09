@@ -257,6 +257,9 @@ plot_sol_space <- function(sol_space) {
 
 
 plot_solutions <- function(g, ssp, 
+                           add_node_labels = TRUE,
+                           add_prob_labels = TRUE,
+                           add_title = TRUE,
                            device = "screen", 
                            filename = NULL, 
                            width = 1600, height = 1600, res = 300) {
@@ -268,16 +271,15 @@ plot_solutions <- function(g, ssp,
     }
 
     ns <- nrow(ssp$data)
-
     
     # Set up the plotting area
     par(mfrow = c(ceiling(sqrt(ns)), ceiling(sqrt(ns))),  # Grid layout
-        mar = c(1.0, 0.1, 2.0, 0.1),  # Minimal margins: bottom, left, top, right
+        mar = c(1.0, 0.1, 3.0, 0.1),  # margins: bottom, left, top, right
         oma = c(0, 0, 0, 0))        # No outer margins
     
     # Plot each solution
     node_positions <- igraph::layout.fruchterman.reingold(g)
-
+    p_median = ssp$data$median %>% round(2)
     
     for (i in 1:ns) {
         # Extract membership information
@@ -287,17 +289,29 @@ plot_solutions <- function(g, ssp,
             membership_i <- ssp$M[, i]  
         }
         
+        
+        
         # Plot the graph highlighting the i-th solution  
 
         plot(g, 
+             vertex.label = if(add_node_labels) {V(g)$name} else {NA},
              layout = node_positions,
-             vertex.size = 30,
-             vertex.color = "white",        
+             vertex.size = if(add_node_labels) {30} else {15},
+             vertex.color = if(add_node_labels) {"white"} else {"lightblue"},        
              mark.groups = split(1:vcount(g), membership_i),          
              mark.col = rgb(0.5, 0.5, 0.5, alpha = 0.1),   
              mark.border = 'red',              
-             main = paste("Solution", i)
+             
         )
+        # Add title if `add_title` is TRUE
+        if (add_title) {
+            mtext(paste("Solution", i), side = 3, line = 2, cex = 0.8)
+        }
+        
+        # Add probability labels if `add_prob_labels` is TRUE
+        if (add_prob_labels) {
+            mtext(paste("p = ", p_median[i]), side = 3, line = 1, cex = 0.6)
+        }
     }
     
     # If PNG device was opened, close it
@@ -307,4 +321,22 @@ plot_solutions <- function(g, ssp,
     
     # Reset to default plotting layout (if plotting to the screen)
     par(mfrow = c(1, 1), mar = c(5, 4, 4, 2) + 0.1)
+}
+
+#' @export
+plot_sol_space_evolution <- function(ssp, confidence){
+    x = (1 - confidence) / 2
+    df <- ssp$log %>% 
+        mutate(p = a/(a+b)) %>%
+        mutate(up = qbeta(1 - x, a, b)) %>%
+        mutate(lo = qbeta(x, a, b)) %>%
+        mutate(s = as.factor(s))
+    
+    pl <- df %>% ggplot() +
+        geom_line(aes(x = t, y = p, group = s, color = s)) +
+        geom_ribbon(aes(x = t, ymin = lo, ymax = up, fill = s, ), linewidth = 3, alpha = 0.1) +
+        ylim(0.0, 1.0) +
+        theme_minimal()
+    
+    return(pl)
 }
