@@ -70,11 +70,10 @@ internally_connected <- function(g, community_labels) {
 #' produced by the 'solution_space()' function that is composed of two elements:
 #'   - `M`: A matrix of community labels for each solution.
 #'   - `data`: A dataframe where each row represents a solution, and columns will be added for 
-#'     computed metrics like `k`, `k_n`, `mod`, `mu`, `int_conn`, and `valid`.
+#'     computed metrics like `k`, `mod`, `mu`, `int_conn`, and `valid`.
 #'
 #' @return The `sol_space` object with additional columns in `data`:
 #'   - `k`: The number of unique communities in each solution.
-#'   - `k_n`: The number of communities normalized by the total number of nodes.
 #'   - `mod`: The modularity score for each solution.
 #'   - `mu`: The empirical mixing parameter for each solution.
 #'   - `int_conn`: The number of connected components within each community.
@@ -88,7 +87,6 @@ internally_connected <- function(g, community_labels) {
 #'   - A flag to signal the validity of each solution. A solution is not valid if any of the following condition applies: 
 #'     - `mu > 0.5`: If the mixing parameter exceeds 0.5, the solution is marked as invalid.
 #'     - `k == 1`: If there is only one community, the solution is marked as invalid.
-#'     - `k_n == 1`: If the number of communities is equal to the total number of nodes, the solution is marked as invalid.
 #'     - `int_conn > 1`: If any community has more than one connected component, the solution is marked as invalid.
 #'
 #' @examples
@@ -97,38 +95,126 @@ internally_connected <- function(g, community_labels) {
 #' print(sol_space_checked$data)
 #'
 #' @export
-quality_check <- function(g, sol_space){
+quality_check <- function(g, ssp, mu_max = 0.5) {
+    stopifnot(inherits(g, "igraph"))
+    if (is.null(ssp$partitions)) stop("ssp$partitions is missing.")
     
-    M <- sol_space$M 
-
-    sol_space$data$valid <- TRUE
+    # Partitions: accept either a vector (single solution) or a matrix (multiple solutions)
+    M <- ssp$partitions
+    if (is.null(ncol(M))) M <- matrix(M, ncol = 1)
     
-    n_solutions = nrow(sol_space$data)
+    n_solutions <- ncol(M)
+    n_nodes     <- igraph::vcount(g)
     
-    for (i in 1:n_solutions){
-        if (n_solutions == 1){
-            labels <- M    
-        } else {
-            labels <- M[,i]
-        } 
-        sol_space$data$k[i] <- length(labels %>% unique())
-        sol_space$data$k_n[i] <- sol_space$data$k[i] / vcount(g)
-        
-        # modularity: need to use c_membership + 1 to handle community label 0
-        sol_space$data$mod[i] <- igraph::modularity (g,  labels + 1)
-        
-        # mixing parameter mu
-        sol_space$data$mu[i] <- communities::empirical_mu(g, labels)
-        
-        # communities are internally connected
-        sol_space$data$int_conn[i]  <- max(communities::internally_connected(g, labels))
-        
-        # validity
-        if (sol_space$data$mu[i] > 0.5){sol_space$data$valid[i] <- FALSE}
-        if (sol_space$data$k[i] == 1){sol_space$data$valid[i] <- FALSE}
-        if (sol_space$data$k_n[i] == 1){sol_space$data$valid[i] <- FALSE}
-        if (sol_space$data$int_conn[i] > 1 ){sol_space$data$valid[i] <- FALSE}
+    # Preallocate result vectors
+    k         <- numeric(n_solutions)
+    mod       <- numeric(n_solutions)
+    mu        <- numeric(n_solutions)
+    int_conn  <- logical(n_solutions)
+    valid     <- rep(TRUE, n_solutions)
+    reasons   <- character(n_solutions)
+    
+    # Helper to append reasons for invalidity
+    add_reason <- function(idx, txt) {
+        if (is.na(reasons[idx]) || reasons[idx] == "") reasons[idx] <<- txt
+        else reasons[idx] <<- paste(reasons[idx], txt, sep = " | ")
     }
-
-    return(sol_space)
+    
+    for (i in seq_len(n_solutions)) {
+        labels_raw <- M[, i]
+        
+        # Normalize community labels to 1..K (avoids issues with 0 or sparse labels)
+        labels <- as.integer(factor(labels_raw, levels = unique(labels_raw)))
+        
+        # 1) Number of communities
+        k[i] <- dplyr::n_distinct(labels)
+        
+        # 2) Modularity
+        mod[i] <- igraph::modularity(g, labels)
+        
+        # 3) Mixing parameter mu
+        mu[i] <- communities::empirical_mu(g, labels)
+        
+        # 4) Internal connectivity: TRUE if all communities are internally connected
+        ic_vec <- communities::internally_connected(g, labels) # usually logical per community
+        int_conn[i] <- all(as.logical(ic_vec), na.rm = TRUE)
+        
+        # 5) Validity rules (all NA-safe)
+        if (!is.na(mu[i]) && mu[i] > mu_max) {
+            valid[i] <- FALSE; add_reason(i, sprintf("mu=%.3f > %.3f", mu[i], mu_max))
+        }
+        if (!is.na(k[i]) && k[i] == 1) {
+            valid[i] <- FALSE; add_reason(i, "k=1 (trivial partition)")
+        }
+        if (!is.na(int_conn[i]) && !int_conn[i]) {
+            valid[i] <- FALSE; add_reason(i, "communities not internally connected")
+        }
+        
+        # If any metric is NA, mark solution as invalid and explain
+        if (any(is.na(c(k[i], mod[i], mu[i], int_conn[i])))) {
+            valid[i] <- FALSE
+            add_reason(i, "NA in one or more metrics")
+        }
+    }
+    
+    tibble::tibble(
+        solution_id = seq_len(n_solutions),
+        k           = k,
+        modularity  = mod,
+        mu          = mu,
+        int_conn    = int_conn,
+        valid       = valid,
+        reason      = reasons
+    )
 }
+
+
+#' Similarity Matrix Between Community Partitions (NMI)
+#'
+#' Computes a pairwise similarity matrix between community-detection solutions
+#' using Normalized Mutual Information (NMI, square-root normalization).
+#' The measure is invariant to community label permutations.
+#'
+#' @param partitions A tibble, data.frame, or matrix with \eqn{n} rows (nodes)
+#'   and \eqn{k} columns (solutions). Each column contains community labels for
+#'   one partitioning of the same graph.
+#'
+#' @return A \eqn{k \times k} symmetric numeric matrix with values in \[0, 1\]:
+#'   \itemize{
+#'     \item \code{1} = identical partitions,
+#'     \item \code{0} = completely dissimilar partitions.
+#'   }
+#'   Row and column names correspond to the input column names (or
+#'   \code{"sol1"}, \code{"sol2"}, … if missing).
+#'
+#' @details
+#' This function calls \code{\link[aricode]{NMI}} from the \pkg{aricode} package
+#' with \code{variant = "sqrt"}, which ensures values are in \[0, 1\].
+#' The diagonal is always set to \code{1}.
+ 
+#' @export
+similarity_matrix_nmi <- function(partitions) {
+    M <- as.matrix(partitions)
+    if (is.null(ncol(M))) M <- matrix(M, ncol = 1)
+    
+    k <- ncol(M)
+    if (is.null(colnames(M))) colnames(M) <- paste0("sol", seq_len(k))
+    
+    # initialize k x k matrix, diagonals = 1
+    S <- diag(1, k)
+    dimnames(S) <- list(colnames(M), colnames(M))
+    
+    if (k > 1) {
+        for (i in 1:(k - 1)) {
+            for (j in (i + 1):k) {
+                sim <- aricode::NMI(M[, i], M[, j], variant = "sqrt")
+                S[i, j] <- sim   # upper triangle
+                S[j, i] <- sim   # lower triangle (mirror)
+            }
+        }
+    }
+    return(S)
+}
+
+
+     

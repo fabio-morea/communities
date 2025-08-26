@@ -102,7 +102,7 @@ layout_distance_comm <- function(g, membership, eps = .02) {
 #' for each solution.
 #'
 #' @return A list of up to 4 plots:
-#'   - `pl1`: A line plot showing the cumulative sum and median of solutions, with error bars indicating variability.
+#'   - `pl1`: A plot showing the median probability of solutions, with error bars indicating credible intervals.
 #'   - `pl2`: A visualization of the solution space, showing the range of valid and non-valid solutions.
 #'   - `pl3`: A scatter plot showing the distribution of community sizes for each solution.
 #'   - `pl4`: A plot representing the similarity between the solutions (empty if solution space contains only one solution).
@@ -112,47 +112,46 @@ layout_distance_comm <- function(g, membership, eps = .02) {
 #' plot_list <- plot_sol_space(sol_space)
 #'
 #' @export
-plot_sol_space <- function(sol_space) {
+plot_sol_space <- function(sol_space, qc) {
  
-   if(nrow(sol_space$data) == 0){
+   if(ncol(sol_space$partitions) == 0){
         print("Solution space is epmty")
         return(0)
     }
     
     # 1 ######################### 
-    pl1 <- sol_space$data %>%
-        ggplot(aes(x = y)) +
-        geom_line(aes(y = cumsum), color = "black") +
-        geom_point(aes(y = cumsum,  color = group), size = 3) +
-        geom_col(aes(y = median, fill = group)) +
-        geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
-        geom_text(aes(label = median %>% round(3), y = median), vjust = 0) +
+    pl1 <- sol_space$probabilities %>%
+        ggplot(aes(x = id)) +
+        geom_line(aes(y = phat), color = "black") +
+        geom_point(aes(y = phat), size = 3) +
+        geom_errorbar(aes(ymin = pmin, ymax = pmax), width = 0.2) +
         geom_hline(yintercept = 0.5, color = "red") +
         theme_light()
     
     # 2 ######################### 
-    pl2 <- sol_space$data %>%
+    pl2 <- sol_space$probabilities %>%
+        mutate(y = row_number())%>%
         ggplot(aes(y = id)) +
         geom_rect(
             fill = "gray",
             aes(
-                xmin = lower,
-                xmax = upper,
+                xmin = pmin,
+                xmax = pmax,
                 ymin = y - 0.4,
                 ymax = y + 0.4
             ) ,
             alpha = 0.3
         ) +
         geom_segment(aes(
-            x = lower,
-            xend = upper,
+            x = pmin,
+            xend = pmax,
             y = y,
             yend = y
         ), linewidth = 1) +
-        geom_point(aes(x = median , y = y, 
-                       shape = if_else(valid == TRUE, "v", "NV"), 
-                       color = if_else(valid == TRUE, "v", "NV"), 
-                   size = 3)) +
+        geom_point(aes(x = phat , y = y, 
+                       shape = if_else(qc$valid == TRUE, "v", "NV"), 
+                       color = if_else(qc$valid == TRUE, "v", "NV"), 
+                       size = 3)) +
         scale_shape_manual(values = c("v" = 16, "NV" = 18)) +  # 16 = circle 4 = X
         scale_color_manual(values = c("v" = "black", "NV" = "red")) +
         geom_vline(xintercept = 0.5,
@@ -166,70 +165,91 @@ plot_sol_space <- function(sol_space) {
         theme_minimal()
     
     # 3 ######################### 
-    nn <- nrow(sol_space$data)
-    df <- data.frame()
-    for (j in 1:nn) {
-        if (nn == 1) {
-            comm_labels <- sol_space$M
-        } else {
-            comm_labels <- sol_space$M[, j]
-        }
+    nn <- nrow(sol_space$probabilities)
+    
+    # Ensure partitions is a matrix with one column per solution
+    M <- sol_space$partitions
+    if (is.null(ncol(M))) M <- matrix(M, ncol = 1)
+    
+    # Build data for plotting
+    df <- map_dfr(seq_len(nn), function(j) {
+        comm_labels <- if (ncol(M) == 1) M[, 1] else M[, j]
+         
+        
         community_size_dist <- table(comm_labels) |>
-            sort(decreasing = TRUE)  |>
+            sort(decreasing = TRUE) |>
             unname() |> as.integer()
         
-        df <- rbind(df,
-                    data.frame(
-                        cs = community_size_dist %>% round(0),
-                        x = 1:length(community_size_dist),
-                        y = rep(j, length(community_size_dist))
-                    ))
-    }
+        tibble(
+            cs  = as.integer(round(community_size_dist, 0)),
+            x   = seq_along(community_size_dist),   # index of community within solution
+            y   = j,                                # one horizontal row per solution
+            grp = if_else(cs == 1L, "single", "comm")
+        )
+    })
     
-    pl3 <- df %>%
-        ggplot( aes(x = x, y = y)) +
-        geom_point(aes(
-            size = cs,
-            color = if_else(cs == 1, "single", "comm"),
-            shape = if_else(cs == 1, "single", "comm")
-        )) +
-        scale_color_manual(values = c("black", "blue")) +
-        scale_shape_manual(values = c(1, 5)) +
-        ylim(0.4, nrow(sol_space$data)+0.4)+
-        
+    pl3 <- ggplot(df, aes(x = x, y = y)) +
+        # hollow circles; size maps linearly to cs (diameter)
+        geom_point(aes(size = cs), shape = 1, color = "black", stroke = 0.8) +
+        scale_size_continuous(
+            range  = c(min(df$cs), max(df$cs)),                 # visual min/max; linear mapping preserved
+            breaks = function(lims) {            # integer breaks without overcrowding
+                by <- max(1, floor((lims[2] - 1) / 5))  # ≈5 ticks
+                seq(1, lims[2], by = by)
+            },
+            labels = scales::number_format(accuracy = 1),
+            name   = "Community size"
+        ) +
+        ylim(0.5, nn + 0.5) +
         theme_minimal() +
-        labs(x = "community size", y = "", solution = "") 
+        labs(
+            x = "community index",
+            y = "solution",
+            title = "Community size distribution per solution"
+        )
+    
     
     #heatmap
-    if (nrow(sol_space$data)>=2) {
+    if (ncol(sol_space$partitions)>=2) {
         
-    simil_df <- as.data.frame(sol_space$simil)
-    simil_df$Partition1 <- rownames(simil_df)
-    simil_long <- simil_df %>%
-            pivot_longer(cols = -Partition1, names_to = "Partition2", values_to = "similarity") %>%
-        filter(similarity >= 0)
-    
-    simil_long <- simil_long %>% filter(Partition1 >= Partition2) # upper tri
-    simil_long <- simil_long %>%
-            mutate(Partition1 = factor(Partition1, levels = unique(Partition1)),
-                   Partition2 = factor(Partition2, levels = unique(Partition2)))
-    
-    pl4 <-  ggplot(simil_long, aes(x = Partition2, y = Partition1, fill = similarity)) +
-        geom_tile(color = "white", size = 0.5) + 
-        scale_fill_gradient(low = "red", high = "green", limits = c(0, 1), 
-                            na.value = "white", guide = "colorbar") +
-        labs(x = "Solutions", y = "Solutions", title = "") +
-        theme_minimal(base_size = 14) +  # Slightly increase base font size for clarity
-        theme(
-            axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),  # Align x-axis text vertically
-            axis.text.y = element_text(hjust = 1),
-            plot.title = element_text(hjust = 0.5, face = "bold"),  # Center the title and make it bold
-            axis.title.x = element_text(margin = margin(t = 10)),  # Add margin for x-axis label
-            axis.title.y = element_text(margin = margin(r = 10)),  # Add margin for y-axis label
-            legend.position = "right",  # Move the legend to the right
-            legend.title = element_blank()  # Remove the legend title
-        ) +
-        theme(aspect.ratio = 1.0)  # Keep the plot square
+        # Convert similarity matrix to long format
+        simil_long <- simil %>%
+            as.data.frame() %>%
+            tibble::rownames_to_column("Partition1") %>%
+            pivot_longer(-Partition1, names_to = "Partition2", values_to = "similarity") %>%
+            filter(similarity >= 0)
+        
+        # Ensure consistent ordering of factors
+        all_parts <- colnames(simil)
+        simil_long <- simil_long %>%
+            mutate(
+                Partition1 = factor(Partition1, levels = all_parts),
+                Partition2 = factor(Partition2, levels = all_parts)
+            )
+        
+        
+        # Plot
+        pl4 <- ggplot(simil_long, aes(x = Partition2, y = Partition1, fill = similarity)) +
+            geom_tile(color = "grey70", size = 0.5) +  # add borders between squares
+            geom_text(aes(label = sprintf("%.2f", similarity)), size = 3, color = "black") +
+            scale_fill_gradient(
+                low = "red", high = "green",
+                limits = c(0, 1), na.value = "white", guide = "colorbar"
+            ) +
+            labs(x = "Solutions", y = "Solutions", title = "Partition Similarity (NMI)") +
+            theme_minimal(base_size = 14) +
+            theme(
+                axis.text.x  = element_text(angle = 90, hjust = 1, vjust = 0.5),
+                axis.text.y  = element_text(hjust = 1),
+                plot.title   = element_text(hjust = 0.5, face = "bold"),
+                axis.title.x = element_text(margin = margin(t = 10)),
+                axis.title.y = element_text(margin = margin(r = 10)),
+                legend.position = "right",
+                legend.title    = element_blank(),
+                aspect.ratio    = 1
+            )
+        
+        pl4
     
     } else {pl4 = NA}
     
@@ -277,7 +297,7 @@ plot_solutions <- function(g, ssp,
         png(filename, width = width, height = height, res = res)  
     }
 
-    ns <- nrow(ssp$data)
+    ns <- ncol(ssp$partitions)
     
     # Set up the plotting area
     par(mfrow = c(ceiling(sqrt(ns)), ceiling(sqrt(ns))),  # Grid layout
@@ -286,14 +306,14 @@ plot_solutions <- function(g, ssp,
     
     # Plot each solution
     node_positions <- igraph::layout.fruchterman.reingold(g)
-    p_median = ssp$data$median %>% round(2)
+    p_median = ssp$probabilities$phat %>% round(3)
     
     for (i in 1:ns) {
         # Extract membership information
         if (ns == 1){
-            membership_i <- ssp$M
+            membership_i <- ssp$partitions
         } else {
-            membership_i <- ssp$M[, i]  
+            membership_i <- ssp$partitions[, i]  
         }
         
         
@@ -333,22 +353,38 @@ plot_solutions <- function(g, ssp,
 }
 
 #' @export
-plot_sol_space_evolution <- function(ssp, confidence, add_ribbon_color = TRUE){
-    x = (1 - confidence) / 2
-    df <- ssp$log %>% 
-        mutate(p = a/(a+b)) %>%
-        mutate(up = qbeta(1 - x, a, b)) %>%
-        mutate(lo = qbeta(x, a, b)) %>%
-        mutate(s = as.factor(s))
+plot_sol_space_evolution <- function(ssp, show_ci = TRUE, smooth = FALSE) {
+    if (is.null(ssp$log$prob_long))
+        stop("ssp$log$prob_long not found. Re-run with updated logging that includes phat/pmin/pmax by trial.")
     
-    pl <- df %>% ggplot(aes(x = t, y = p, group = s, color = s)) +
-        geom_line(linewidth = 1) +
-        geom_point(size = 2) +
-        ylim(0.0, 1.0) +
-        geom_hline(yintercept = 0.0)+
-        geom_hline(yintercept = 1.0)+
-        theme_minimal()
+    suppressPackageStartupMessages({
+        library(ggplot2)
+        library(dplyr)
+    })
     
-    if (add_ribbon_color) {pl <- pl + geom_ribbon(aes(x = t, ymin = lo, ymax = up, fill = s ), alpha = 0.1) }
-    return(pl)
+    df <- ssp$log$prob_long %>%
+        mutate(solution = factor(solution, levels = unique(solution)))
+    
+    p <- ggplot(df, aes(x = trial, y = phat, color = solution)) +
+        { if (show_ci) 
+            geom_ribbon(aes(ymin = pmin, ymax = pmax, fill = solution), alpha = 0.15, color = NA) 
+            else NULL } +
+        geom_line(size = 0.8,na.rm = TRUE) +
+        { if (smooth) geom_smooth(se = FALSE, size = 0.6, linetype = 3, method = "loess", span = 0.4) else NULL } +
+        scale_y_continuous(limits = c(0, 1), expand = expansion(mult = c(0, 0.02))) +
+        labs(
+            x = "Trial",
+            y = "Posterior probability (phat)",
+            color = "Solution",
+            fill  = "Solution",
+            title = "Evolution of solution probabilities by trial"
+        ) +
+        theme_minimal(base_size = 13) +
+        theme(
+            plot.title   = element_text(face = "bold", hjust = 0.5),
+            legend.position = "right"
+        )
+    
+    return(p)
 }
+

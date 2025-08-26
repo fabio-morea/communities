@@ -188,35 +188,65 @@ solutions_space_DM <- function(
         stop_reason <- "budget_exhausted"
     }
     
-    # Final posterior summary
+     # ---- Final posterior summary ----
     ci <- beta_ci(counts)
     probs_df <- data.frame(
         id     = names(counts),
         count  = as.integer(counts),
         phat   = ci$phat,
-        plower = ci$lower,
-        pupper = ci$upper,
+        pmin   = ci$lower,
+        pmax   = ci$upper,
         row.names = NULL
     )
     ord <- order(probs_df$phat, decreasing = TRUE)
     probs_df <- probs_df[ord, , drop = FALSE]
     M <- M[, match(probs_df$id, colnames(M)), drop = FALSE]
     
-    # Log matrix
+    # ---- Build trial-wise probability logs: phat / pmin / pmax ----
     all_ids <- colnames(M)
-    counts_mat <- matrix(0L, nrow = stop_trial, ncol = length(all_ids),
-                         dimnames = list(trial = seq_len(stop_trial), solution = all_ids))
+    n_sol   <- length(all_ids)
+    
+    phat_mat <- matrix(NA_real_, nrow = stop_trial, ncol = n_sol,
+                       dimnames = list(trial = seq_len(stop_trial), solution = all_ids))
+    pmin_mat <- phat_mat
+    pmax_mat <- phat_mat
+    
     for (t in seq_len(stop_trial)) {
         ct <- counts_by_trial[[t]]
-        if (length(ct)) counts_mat[t, names(ct)] <- ct
+        if (length(ct)) {
+            # compute CI on the solutions known at trial t
+            ci_t <- beta_ci(ct)
+            # name vectors for alignment
+            ph <- as.numeric(ci_t$phat); names(ph) <- names(ct)
+            lo <- as.numeric(ci_t$lower); names(lo) <- names(ct)
+            up <- as.numeric(ci_t$upper); names(up) <- names(ct)
+            
+            # write into matrices (only for solutions existing at trial t)
+            cols <- intersect(names(ct), all_ids)
+            phat_mat[t, cols] <- ph[cols]
+            pmin_mat[t, cols] <- lo[cols]
+            pmax_mat[t, cols] <- up[cols]
+        }
     }
     
-    counts_long <- do.call(rbind, lapply(seq_len(stop_trial), function(t) {
-        data.frame(trial = t, solution = all_ids, count = counts_mat[t, all_ids])
-    }))
+    # Also provide long-format log
+    prob_long <- do.call(
+        rbind,
+        lapply(seq_len(stop_trial), function(t) {
+            data.frame(
+                trial    = t,
+                solution = all_ids,
+                phat     = phat_mat[t, all_ids],
+                pmin     = pmin_mat[t, all_ids],
+                pmax     = pmax_mat[t, all_ids],
+                row.names = NULL
+            )
+        })
+    )
     
+    # ---- Return ----
     list(
-        partitions = M,
+        partitions    = M,
         probabilities = probs_df,
         log = list(
             stop_trial    = stop_trial,
@@ -225,10 +255,24 @@ solutions_space_DM <- function(
             confidence    = confidence,
             gamma0        = gamma0,
             max_ci_width  = head(max_ci_width, stop_trial),
-            counts_matrix = counts_mat,
-            counts_long   = counts_long
+            # counts (kept for reference)
+            counts_matrix = {
+                counts_mat <- matrix(0L, nrow = stop_trial, ncol = length(all_ids),
+                                     dimnames = list(trial = seq_len(stop_trial), solution = all_ids))
+                for (t in seq_len(stop_trial)) {
+                    ct <- counts_by_trial[[t]]
+                    if (length(ct)) counts_mat[t, names(ct)] <- ct
+                }
+                counts_mat
+            },
+            # NEW: probabilities per trial and solution
+            phat_matrix = phat_mat,
+            pmin_matrix = pmin_mat,
+            pmax_matrix = pmax_mat,
+            prob_long   = prob_long
         )
     )
+    
 }
 
 
@@ -435,12 +479,6 @@ build_gamma_matrix <- function(partitions, probs = NULL, tol = 1e-9) {
 #' The output matrix indicates the extent to which pairs of nodes appear together in the same community 
 #' across different trials, with weights normalized by the median values of the solutions.
 #' 
-#' The function filters out invalid trials based on the `valid` column in the 
-#' `ssp$data` dataframe. It then computes the co-occurrence matrix `D` by iterating 
-#' through each trial and identifying pairs of nodes that belong to the same 
-#' community. The contribution of each trial to the co-occurrence matrix is 
-#' weighted by the `median` values in the `ssp$data` dataframe, normalized by the 
-#' total sum of medians.
 #'
 #' @param ssp A list containing the solution space, including community membership 
 #' matrix `M` and associated data. The list should have at least the following elements (any further elements are ignored):
