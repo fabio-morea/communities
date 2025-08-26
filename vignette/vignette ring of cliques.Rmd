@@ -1,112 +1,165 @@
 ---
-title: "vignette - ring of cliques"
+title: "communities library - Rings of Cliques"
 output:
   pdf_document: default
   html_notebook: default
+vignette: >
+ 
 ---
 
-------------------------------------------------------------------------
-
-### `make_clique`
-
-**Title:**\
-Create a Clique and Assign a Community Label
-
-**Usage:**
-
-``` r
-make_clique(clique_size, comm_label)
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6, fig.height = 4)
+set.seed(123) # reproducibility for layouts only
 ```
 
-**Arguments:**\
-- `clique_size`: An integer representing the number of nodes in the
-clique. All nodes will be fully connected to each other. - `comm_label`:
-A numeric or character value used to assign a community label to the
-nodes within the clique. The label will be stored in the `community`
-node attribute.
+## Overview
 
-**Value:**\
-An undirected iGraph object representing a clique, where all nodes are
-connected. Each node will have a `community` attribute assigned
-according to the `comm_label` parameter.
+This vignette shows how to create **Ring-of-Cliques (ROC)** test graphs using `make_ring_of_cliques()` with four variants:
 
-**Description:**\
-The `make_clique` function generates a fully connected subgraph (i.e., a
-clique) of a specified size and assigns a community label to all nodes
-in the clique. This function is used mainly by `make_ring_of_cliques()`.
+-   **RC**
+-   **RC_B** — ring bridges between adjacent cliques
+-   **RC_C** — one central node connected to each clique
+-   **RC_BC** — both ring bridges **and** central node
 
-**Details:**\
-A clique is a subset of a graph where every node is connected to every
-other node. This function constructs such a graph using a given number
-of nodes and allows the assignment of a common community label to those
-nodes. The returned graph is undirected and can be combined with other
-cliques or networks.
+Each clique is a ground-truth community. The function annotates vertices with: - `gt_community` (numeric), `gt_label` (character), - `clique_id`, `within_id`, - role flags (`role`, `is_bridge_endpoint`, `is_center_endpoint`).
 
-**Examples:**
-
-``` r
-# Create a clique of size 5 with community label 1 clique <- make_clique(clique_size = 5, comm_label = 1)
-```
+Graphs are constructed deterministically: all clique vertices come first, the optional center (if any) is last.
 
 ------------------------------------------------------------------------
 
-### `make_ring_of_cliques`
+## Quick start
 
-**Title:**\
-Create a Ring of Cliques Graph with Optional Bridge and Central Node
+```{r}
 
-**Usage:**
+library(tidyverse)
+library(knitr)   # for kable()
+library(igraph)
+library(communities)
+```
 
-``` r
-make_ring_of_cliques(
-  num_cliques,
-  clique_size,
-  add_center = TRUE,
-  add_bridges = TRUE
+```{r}
+
+g  <- communities::make_ring_of_cliques(
+    n_cliques = 4,
+    clique_size = 10,
+    variant = "RC"
+)
+
+plot(
+  g,
+  vertex.color = degree(g),
+  vertex.label = NA,
+  vertex.size = 15,
+  edge.color = "grey70",
 )
 ```
 
-**Arguments:**\
-- `num_cliques`: An integer specifying the number of cliques to include
-in the ring. - `clique_size`: An integer specifying the number of nodes
-in each clique. - `add_center`: A logical value indicating whether to
-add a central node that connects to all cliques. Default is `TRUE`. -
-`add_bridges`: A logical value indicating whether to add bridge nodes
-between adjacent cliques in the ring. Default is `TRUE`.
+```{r}
+g  <- communities::make_ring_of_cliques(
+    n_cliques = 4,
+    clique_size = 8,
+    variant = "RC_C"
+)
 
-**Value:**\
-An iGraph object representing the ring of cliques. Each node is assigned
-a community label, with cliques labeled as `C1, C2, ...`, bridge nodes
-labeled as `B1, B2, ...`, and the central node labeled as `A`. The graph
-is undirected, and all edges have a weight of 1.
+plot(
+  g,
+  vertex.color = degree(g),
+  vertex.label = NA,
+  vertex.size = 10,
+  edge.color = "grey70",
+)
 
-**Description:**\
-The `make_ring_of_cliques` function generates a graph composed of
-multiple fully connected subgraphs (cliques) arranged in a ring.
-Optionally, "bridge nodes" can be added between cliques, and a central
-node can be added that connects to all cliques.
+```
 
-**Details:**\
-This function creates a network structure where cliques are connected in
-a ring formation. Rings of cliques are useful for testing community
-detection algorithms. By varying the parameters, one can create toy
-examples of controlled complexity, ranging from trivially simple to
-particularly challenging.\
-- If `add_bridges` is `TRUE`, additional bridge nodes are inserted
-between each adjacent pair of cliques, with edges connecting the
-cliques. - If `add_center` is `TRUE`, a central node is added, connected
-to a node in each clique, creating a star-like structure.
+```{r}
 
-**Examples:**
+g  <- communities::make_ring_of_cliques(
+    n_cliques = 4,
+    clique_size = 10,
+    variant = "RC_B"
+)
 
-``` r
-# Create a ring of 4 cliques, each with 5 nodes, with both bridges and a central node
-ring_of_cliques <- make_ring_of_cliques(num_cliques = 4, clique_size = 5, add_center = TRUE, add_bridges = TRUE)
+plot(
+  g,
+  vertex.color = degree(g),
+  vertex.label = NA,
+  vertex.size = 15,
+  edge.color = "grey70",
+)
+```
 
-# Create a ring of 3 cliques without bridges or a central node
-ring_of_cliques_no_center <- make_ring_of_cliques(num_cliques = 3, clique_size = 4, add_center = FALSE, add_bridges = FALSE)
+```{r}
+
+g  <- communities::make_ring_of_cliques(
+    n_cliques = 6,
+    clique_size = 8,
+    variant = "RC_BC"
+)
+
+plot(
+  g,
+  vertex.color = degree(g),
+  vertex.label = NA,
+  vertex.size = 10,
+  edge.color = "grey70",
+)
+```
+
+```         
 ```
 
 ------------------------------------------------------------------------
 
-### 
+## Ground-truth labels
+
+Each clique is assigned to a "truth community"; outliers are assigned to community "0":
+
+```{r}
+g  <- communities::make_ring_of_cliques(
+    n_cliques = 6,
+    clique_size = 8,
+    variant = "RC_BC"
+)
+# Each node belongs to a community identified by its "gt_community" attribute.
+# Here we count how many nodes are in each community.
+comm_dist <- tibble(
+  community = V(g)$gt_community
+) %>%
+  count(community, name = "n_nodes") %>%
+  arrange(desc(n_nodes))
+
+kable(comm_dist, caption = "Distribution of ground-truth communities")
+
+
+
+```
+
+```{r}
+# --- Outlier nodes (if present) ---
+# Nodes with gt_community = 0 are considered outliers and are labelled "CENTRAL".
+# We extract and display only these nodes for inspection.
+outliers <- tibble(
+  node = V(g)$name,
+  community = V(g)$gt_community
+) %>%
+  filter(community == 0)
+
+kable(outliers, caption = "List of outlier nodes (community = 0)")
+```
+
+You can inspect roles and edge types:
+
+```{r}
+sort(table(V(g)$role))
+sort(table(E(g)$edge_type))
+```
+
+## Takeaways
+
+-   Each clique is annotated with a unique ground-truth label.
+-   Variants (RC_B, RC_C, RC_BC) change the meso-structure without altering the inner cliques.
+-   The construction is deterministic and idempotent: given the same parameters, you always obtain the same graph structure and vertex order.
+
+This makes the functions suitable for benchmarking community detection algorithms under controlled conditions.
+
+

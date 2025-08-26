@@ -1,240 +1,432 @@
 
-bayesian_update_model <- function(prior, selected){
-    # a, b: Parameters of the prior Beta(a, b) distribution
-    # i: index of  solution that will be updates
-    posterior <- prior
-    for (i in 1:nrow(prior)){
-        if (i == selected){
-            # increment success count for the solution found
-            posterior$a[i] <- prior$a[i] + 1 
-        } else {
-            # increment failure count for all other solutions
-            posterior$b[i] <- prior$b[i]  + 1
-        }
-    }
-    return(posterior)
-}
-
-bayesian_add_new_solution <- function(prior){
-    # updates the prior distribution adding a new solution
-    # the number of trials is embedded in the prior
-    t = prior$a[1] + prior$b[1] - 1
-    # add a new beta for the new solution
-    prior <- rbind(prior, data.frame(a = 1, b = t))
-    return(prior)
-}
+# bayesian_update_model <- function(prior, selected){
+#     # a, b: Parameters of the prior Beta(a, b) distribution
+#     # i: index of  solution that will be updates
+#     posterior <- prior
+#     for (i in 1:nrow(prior)){
+#         if (i == selected){
+#             # increment success count for the solution found
+#             posterior$a[i] <- prior$a[i] + 1 
+#         } else {
+#             # increment failure count for all other solutions
+#             posterior$b[i] <- prior$b[i]  + 1
+#         }
+#     }
+#     return(posterior)
+# }
+# 
+# bayesian_add_new_solution <- function(prior){
+#     # updates the prior distribution adding a new solution
+#     # the number of trials is embedded in the prior
+#     t = prior$a[1] + prior$b[1] - 1
+#     # add a new beta for the new solution
+#     prior <- rbind(prior, data.frame(a = 1, b = t))
+#     return(prior)
+# }
 
 
 
 #' Explore the Solution Space of Community Detection Algorithms
+#'#' Explore the Solution Space of Community Detection Algorithms
 #'
-#' The `solutions_space` function generates the solution space of a given community detection algorithm, i.e. the set of all independent solutions identified after a number of independent trials. By running multiple trials of a selected community detection method, it identifies one or more unique solutions, and calculates similarity between them. The function also computes the probability associated with each unique solution, using a Bayesian approach (to estimate the confidence of each solution and organizes the results based on confidence intervals)Beta Binomial model).
+#' Repeatedly runs a community detection algorithm on a graph under randomized conditions
+#' (e.g., vertex permutation) to explore the diversity of partitions generated. Tracks 
+#' unique solutions, models posterior probabilities via a Dirichlet–Multinomial framework, 
+#' and applies a precision stopping rule based on Beta credible intervals.
 #'
-#' @param g An iGraph object representing the network on which community detection will be performed.
-#' @param n_trials An integer specifying the number of trials to run for community detection.
-#' #' @param tau: A value between 0.0 and 1.0 specifying the threshold of stability of the solution space. When p_stable >= tau, the solution spaces is considered stable, i.e. the probability of a nwe solution to be found at the next trial is below tau. and thethe explorarion is terminated. Default value is 0.95.
-#' @param met A string specifying the community detection method to use. Available options include:
-#'   - `"IM"`: Infomap
-#'   - `"WT"`: Walktrap
-#'   - `"LV"`: Louvain
-#'   - `"LD"`: Leiden
-#'   - `"LP"`: Label Propagation
-#'   - `"EV"`: Leading Eigenvector
-#'   - `"EB"`: Edge Betweenness
-#' @param shuffle A logical value indicating whether to shuffle the network (i.e. permute the order of nodes and edges) order before running the community detection algorithm. Default is `TRUE`.
-#' @param comp_method A string specifying the method for comparing solutions. Available options:
-#'   - `"ami"`: Adjusted Mutual Information (default)
-#'   - `"ari"`: Adjusted Rand Index
-#' @param confidence A numeric value representing the confidence level for estimating the confidence intervals of the solutions. Default is 0.95.
-#' @param resolution A numeric value for the resolution parameter used by some community detection algorithms, such as Louvain and Leiden. Default is 1.0.
-#' @param IM.nb.trials An integer specifying the number of trials for the Infomap algorithm. Default is 10.
-#' @param WT.steps An integer specifying the number of steps for the Walktrap algorithm. Default is 3.
+#' @param g An `igraph` object. The graph whose community structure is to be analyzed.
+#' @param n_trials Integer. Maximum number of trials to run (default: 200).
+#' @param met Character. Community detection method. One of: `"IM"` (Infomap), `"WT"` (Walktrap), 
+#'   `"LV"` (Louvain), `"LD"` (Leiden), `"LP"` (Label Propagation), `"EV"` (Leading Eigenvector), 
+#'   `"EB"` (Edge Betweenness). Default is `"IM"`.
+#' @param delta Numeric. Precision threshold: maximum allowed width of Beta credible intervals 
+#'   for solution probabilities. Default is `0.05`.
+#' @param confidence Numeric. Confidence level for Beta credible intervals (default: 0.95).
+#' @param gamma0 Numeric. Symmetric Dirichlet prior parameter (default: 1).
+#' @param seed Optional integer. If set, uses this value to seed the random number generator.
+#' @param verbose Logical. If `TRUE`, prints progress at each trial. Default is `TRUE`.
 #'
-#' @return A list-like object containing 3 items:
-#'   - `M`: A matrix where each column represents a unique community detection solution. Rows are ordered as the nodes in the input graph. Columns are ordered by decreasing probability (median of confidence intervals).
-#'   - `data`: A dataframe summarizing the features of each solution, including confidence intervals, similarity scores, and grouping based on confidence levels.
-#'   - `simil`: A similarity matrix (using ARI) between the different solutions found.
+#' @return A list with three components:
+#' \describe{
+#'   \item{`partitions`}{A matrix (`nv` × `ns`) of unique partitions found, one per column. Rows are nodes.}
+#'   \item{`probabilities`}{A data frame summarizing posterior probabilities for each solution:
+#'     \code{id}, \code{count}, \code{phat}, \code{plower}, \code{pupper}.}
+#'   \item{`log`}{A list of convergence diagnostics and trial-by-trial counts, including:
+#'     \code{stop_trial}, \code{stop_reason}, \code{counts_matrix}, \code{counts_long},
+#'     and the width of credible intervals at each step.}
+#' }
 #'
-#' @details The function performs multiple trials of the chosen community detection method and compares the solutions using the selected comparison method (AMI or ARI). It checks if new solutions are unique by comparing them to previously found solutions. Unique solutions are added to the result set, and a Bayesian updating procedure is applied to compute confidence intervals for the posterior distribution of each solution. A similarity matrix between solutions is also computed using ARI.
-#'
-#' The function supports several popular community detection algorithms, and it allows for shuffling the node order between trials to introduce randomness and explore different solutions.
+#' @details
+#' - Uses name-based remapping to align partition membership vectors to the original graph order.
+#' - Posterior inference is based on a symmetric Dirichlet prior and marginal Beta distributions.
+#' - Stops early if the width of all marginal CIs falls below `delta`.
 #'
 #' @examples
-#' # Run 10 trials of the Louvain method and explore the solution space
-#' solution_space <- solutions_space(g, n_trials = 10, tau = 0.9, met = 'LV', comp_method = 'ami')
-#' print(solution_space$data)
+#' \dontrun{
+#' library(igraph)
+#' g <- make_ring(10)
+#' result <- solutions_space_DM(g, n_trials = 100, met = "IM", seed = 42)
+#' print(result$probabilities)
+#' }
 #'
 #' @export
-solutions_space <-
-    function(g,
-             n_trials = 100,
-             tau = 0.95, 
-             met = 'IM',
-             shuffle = TRUE,
-             comp_method = 'ami',#ari
-             confidence = .95,
-             resolution = 1.0,
-             IM.nb.trials = 10,
-             WT.steps = 3, 
-             verbose = TRUE) {
-        
-        M <- matrix(NA, nrow = vcount(g), ncol = 1)
-        rownames(M) <- V(g)$name
-        S <- matrix(0.0,  nrow = n_trials, ncol = n_trials)
-        ns <- 0
-        
-        prior <- data.frame(a = 1, b = 1) # uninformative prior: no trials, no info
-        log = data.frame()
-        
-        for (t in 1:n_trials) {
-            if (shuffle == TRUE) {
-                gs <- igraph::permute(g, sample(vcount(g)))
-            } else {
-                gs <- g
-            }
-            
-            comms <- switch(
-                met,
-                "IM" = igraph::infomap.community(gs, nb.trials = IM.nb.trials),
-                "WT" = igraph::walktrap.community(gs, steps = WT.steps),
-                "LV" = igraph::cluster_louvain(gs, resolution = resolution),
-                "LD" = igraph::cluster_leiden(gs, resolution_parameter = resolution),
-                "LP" = igraph::label.propagation.community(gs),
-                "EV" = igraph::cluster_leading_eigen(gs),
-                "EB" = igraph::cluster_edge_betweenness(gs)
+#' 
+
+# ============================================================
+# solutions_space(): Explore solution space  
+# ============================================================
+solutions_space_DM <- function(
+        g,
+        n_trials   = 200,
+        met        = "IM",      # IM, WT, LV, LD, LP, EV, EB
+        delta      = 0.05,      # precision rule: max marginal CI width
+        confidence = 0.95,      # Beta marginal credible interval
+        gamma0     = 1,         # symmetric Dirichlet prior
+        seed       = NULL,
+        verbose    = TRUE
+) {
+    if (!requireNamespace("igraph", quietly = TRUE))
+        stop("Package 'igraph' is required.")
+    if (!requireNamespace("aricode", quietly = TRUE))
+        stop("Package 'aricode' is required.")
+    if (!inherits(g, "igraph")) stop("`g` must be an igraph object.")
+    nv <- igraph::vcount(g)
+    if (nv < 2L) stop("Graph must have at least 2 vertices.")
+    if (is.null(igraph::V(g)$name)) igraph::V(g)$name <- as.character(seq_len(nv))
+    if (!is.null(seed)) set.seed(seed)
+    
+    # Internal settings (fixed)
+    shuffle      <- TRUE
+    im_trials    <- 10
+    wt_steps     <- 3
+    resolution   <- 1.0
+    
+    # Internal helpers
+    eq_1 <- function(x, y) isTRUE(all.equal(aricode::ARI(x, y), 1))
+    beta_ci <- function(counts) {
+        ns <- length(counts)
+        if (ns == 1L) {
+            a <- counts + gamma0; b <- gamma0
+            list(
+                phat  = a / (a + b),
+                lower = stats::qbeta((1 - confidence) / 2, a, b),
+                upper = stats::qbeta((1 + confidence) / 2, a, b)
             )
-            
-            membership <- comms$membership
-            
-            if (t == 1) {
-                # first solution found
-                M[, 1] <- membership[match(V(g)$name, V(gs)$name)]
-                ns <- 1
-                posterior <- bayesian_update_model(prior, 1)
-
-            } else {
-                # further trials: check if the solution is new
-                for (i in 1:ns) {
-                    sim_score <- switch(
-                        comp_method,
-                        "ari" = aricode::ARI(membership[match(V(g)$name, V(gs)$name)], M[, i]),
-                        "ami" = aricode::AMI(membership[match(V(g)$name, V(gs)$name)], M[, i]),
-                        "Invalid selection"
-                    )
-                    
-                    if (sim_score == 1) {
-                        # we already have this solution
-                        posterior <- bayesian_update_model(prior, i)
- 
-                        break # no need to explore further
-                    }
-                }#end for
-                
-                if (sim_score < 1) {
-                    # it's a new solution
-                    ns <- ns + 1
-                    M <- cbind(M, membership[match(V(g)$name, V(gs)$name)])
-                    prior <- bayesian_add_new_solution(prior)
-                    posterior <- bayesian_update_model(prior, ns)
- 
-                    
-                }
-                # bayesian update
-                results <- posterior %>%
-                    mutate(lower = NA,
-                           upper = NA,
-                           median = NA)
-                
-                s = nrow(results)
-                
-                # confidence intervals
-                x = (1 - confidence) / 2
-                for (i in 1:s) {
-                    results$upper[i] <- qbeta(1 - x, posterior$a[i], posterior$b[i])
-                    results$lower[i] <-
-                        qbeta(x  , posterior$a[i], posterior$b[i])
-                    results$median[i] <-
-                        qbeta(0.5, posterior$a[i], posterior$b[i])
-                }
-                results <- results %>% arrange(-median)
-                
-            }#end if
-            
-            prior <- posterior
-            
-            # save the results at each iteration in the log dataframe
-            newdata<- posterior %>% select(a, b) %>%
-                mutate(s = 1:nrow(posterior)) %>% 
-                mutate(t = t)
-            log <- rbind(log, newdata)
-                
-            
-            # exit the for loop before t_max in case the solution is stable
-            p_stable = (t-ns)/(t+1)
-            
-            if (p_stable > tau){
-                if (verbose) {print(paste("Exit at t = ", t))}
-                 break
-                }
-        }#end for
-        
-        #results <- results %>% filter(a > 0) #remove empty lines
-        results$y <- 1:nrow(results)
-        if (shuffle == TRUE) {
-            results$id <- sprintf("s%02d", results$y)
         } else {
-            results$id <- sprintf("u%02d", results$y)
+            a <- counts + gamma0
+            A <- sum(a)
+            list(
+                phat  = a / A,
+                lower = stats::qbeta((1 - confidence) / 2, a, A - a),
+                upper = stats::qbeta((1 + confidence) / 2, a, A - a)
+            )
         }
-        
-        results$group <- NA
-        grp <- 1
-        results$group[1] <- grp
-        if (ns > 1) {
-            for (i in 2:ns) {
-                gap = results$lower[i - 1] > results$upper[i]
-                if (gap) {
-                    grp <- grp + 1
-                }
-                results$group[i] <- grp
-            }
-        }
-        
-        results <- results %>%
-            mutate(group = factor(group)) %>%
-            mutate(cumsum = cumsum(median))  %>%
-            filter(a > 0) %>%
-            arrange(y)
-        
-        #calculate similarity matrix
-        similarity_matrix <- matrix(NA, nrow = ns, ncol = ns)
-        for (i in 1:ns) {
-            for (j in i:ns) {
-                if (i == j) {
-                    next
-                }
-                similarity_score <- aricode::ARI(M[, i], M[, j])
-                similarity_matrix[i, j] <- similarity_score
-                similarity_matrix[j, i] <- similarity_score
-            }
-        }
-        
-        rownames(similarity_matrix) <- results$id
-        colnames(similarity_matrix) <- results$id
-        
-        if (verbose) {print(paste("pstable = ", p_stable))}
-        
-        
-        
-        return(list(
-            M = M[, order(-posterior$a)],
-            data = results,
-            simil = similarity_matrix, 
-            log = log
-        ))
     }
+    
+    # State
+    M <- matrix(numeric(0), nrow = nv, ncol = 0)
+    counts <- numeric(0)
+    names(counts) <- character(0)
+    rownames(M) <- igraph::V(g)$name
+    counts_by_trial <- vector("list", n_trials)
+    max_ci_width <- numeric(n_trials)
+    stop_trial <- NA_integer_
+    stop_reason <- NA_character_
+    
+    for (t in seq_len(n_trials)) {
+        perm <- if (shuffle) sample(nv) else seq_len(nv)
+        gs <- igraph::permute(g, perm)
+        
+        memb_perm <- switch(
+            met,
+            "IM" = igraph::infomap.community(gs, nb.trials = im_trials)$membership,
+            "WT" = igraph::walktrap.community(gs, steps = wt_steps)$membership,
+            "LD" = igraph::cluster_leiden(gs, resolution_parameter = resolution)$membership,
+            "LV" = igraph::cluster_louvain(gs)$membership,
+            "LP" = igraph::label.propagation.community(gs)$membership,
+            "EV" = igraph::cluster_leading_eigen(gs)$membership,
+            "EB" = igraph::cluster_edge_betweenness(gs)$membership,
+            stop("Unsupported method.")
+        )
+        
+        # Remap using node names (always correct if V(g)$name is defined)
+        membership <- memb_perm[match(igraph::V(g)$name, igraph::V(gs)$name)]
+        
+        matched <- FALSE
+        if (ncol(M) > 0) {
+            for (i in seq_len(ncol(M))) {
+                if (eq_1(membership, M[, i])) {
+                    counts[i] <- counts[i] + 1
+                    matched <- TRUE
+                    break
+                }
+            }
+        }
+        if (!matched) {
+            M <- cbind(M, membership)
+            colnames(M)[ncol(M)] <- sprintf("s%02d", ncol(M))
+            counts <- c(counts, 1)
+        }
+        
+        names(counts) <- colnames(M)
+        counts_by_trial[[t]] <- counts
+        
+        # CI width
+        ci <- beta_ci(counts)
+        max_ci_width[t] <- if (length(counts) == 1L) ci$upper - ci$lower else max(ci$upper - ci$lower)
+        if (verbose) message(sprintf("[t=%d] ns=%d, max_CI_width=%.4f", t, length(counts), max_ci_width[t]))
+        
+        if (max_ci_width[t] <= delta) {
+            stop_trial <- t
+            stop_reason <- "precision"
+            break
+        }
+    }
+    
+    if (is.na(stop_trial)) {
+        stop_trial <- n_trials
+        stop_reason <- "budget_exhausted"
+    }
+    
+    # Final posterior summary
+    ci <- beta_ci(counts)
+    probs_df <- data.frame(
+        id     = names(counts),
+        count  = as.integer(counts),
+        phat   = ci$phat,
+        plower = ci$lower,
+        pupper = ci$upper,
+        row.names = NULL
+    )
+    ord <- order(probs_df$phat, decreasing = TRUE)
+    probs_df <- probs_df[ord, , drop = FALSE]
+    M <- M[, match(probs_df$id, colnames(M)), drop = FALSE]
+    
+    # Log matrix
+    all_ids <- colnames(M)
+    counts_mat <- matrix(0L, nrow = stop_trial, ncol = length(all_ids),
+                         dimnames = list(trial = seq_len(stop_trial), solution = all_ids))
+    for (t in seq_len(stop_trial)) {
+        ct <- counts_by_trial[[t]]
+        if (length(ct)) counts_mat[t, names(ct)] <- ct
+    }
+    
+    counts_long <- do.call(rbind, lapply(seq_len(stop_trial), function(t) {
+        data.frame(trial = t, solution = all_ids, count = counts_mat[t, all_ids])
+    }))
+    
+    list(
+        partitions = M,
+        probabilities = probs_df,
+        log = list(
+            stop_trial    = stop_trial,
+            stop_reason   = stop_reason,
+            delta         = delta,
+            confidence    = confidence,
+            gamma0        = gamma0,
+            max_ci_width  = head(max_ci_width, stop_trial),
+            counts_matrix = counts_mat,
+            counts_long   = counts_long
+        )
+    )
+}
+
+
+#' Classify Solution Space Taxonomy
+#'
+#' Given the result of \code{solutions_space_DM()}, this function assigns a
+#' high-level label to the solution space, based on the number and posterior
+#' credibility of distinct partitions found.
+#'
+#' @param ssp A list output from \code{solutions_space_DM()}. It must contain 
+#'   at least the elements \code{partitions}, \code{probabilities}, and \code{log}.
+#'
+#' @return A single character string indicating the type of solution space. One of:
+#' \describe{
+#'   \item{\code{"Empty"}}{No valid partitions found (only degenerate ones).}
+#'   \item{\code{"Single"}}{Only one solution is credible and clearly identified.}
+#'   \item{\code{"Dominant"}}{One solution has a strictly dominant posterior.}
+#'   \item{\code{"Multiple"}}{Multiple solutions with no clear dominance.}
+#'   \item{\code{"Sparse"}}{Too many solutions relative to trials (unstable space).}
+#'   \item{\code{"... uncertain..."}}{Atypical configuration not falling into other types.}
+#' }
+#'
+#' @details
+#' The function checks the number of credible solutions, posterior intervals, and convergence 
+#' log data to categorize the structure of the solution space. Degenerate solutions 
+#' (e.g., all nodes in one group or all in separate groups) are excluded from classification.
+#'
+#' @seealso \code{\link{solutions_space_DM}} for generating the input object.
+#'
+#' @examples
+#' \dontrun{
+#' g <- igraph::make_ring(10)
+#' ssp <- solutions_space_DM(g, n_trials = 100, met = "IM", seed = 123)
+#' solution_space_type(ssp)
+#' }
+#'
+#' @export
+
+# ============================================================
+# solution_space_type(): classify SSP taxonomy
+# ============================================================
+solution_space_type <- function(ssp) {
+    if (!is.list(ssp) || is.null(ssp$probabilities) || is.null(ssp$partitions) || is.null(ssp$log))
+        stop("`ssp` must be the result of solutions_space().")
+    
+    probs <- ssp$probabilities
+    M     <- ssp$partitions
+    lg    <- ssp$log
+    
+    ns <- ncol(M)
+    if (ns == 1L) return("Single")
+    if (ns == 0L) return("Empty")
+    
+    # Degenerate partitions: all same label or all unique
+    valid <- rep(TRUE, ns)
+    for (i in seq_len(ns)) {
+        k <- length(unique(M[, i]))
+        if (k == 1L || k == nrow(M)) valid[i] <- FALSE
+    }
+    if (!any(valid)) return("Empty")
+    
+    pl <- probs$plower
+    pu <- probs$pupper
+    ph <- probs$phat
+    top <- which.max(ph)
+    max_width <- tail(lg$max_ci_width, 1)
+    
+    if (ns == 1L && is.finite(max_width) && max_width <= lg$delta) return("Single")
+    if (length(ph) >= 2L && pl[top] > max(pu[-top])) return("Dominant")
+    if (lg$stop_reason == "budget_exhausted" && ns / lg$stop_trial >= 0.20) return("Sparse")
+    if (max(pl) < 0.5) return("Multiple")
+    return("... uncertain...")
+}
 
 
 
+#' Build the pairwise agreement matrix Γ via explicit triple loops
+#'
+#' @description
+#' Direct, publication-style implementation of
+#'   γ_uv = Σ_i p_hat[i] * 1{u and v co-occur in the same community in partition i}.
+#' This version is intentionally **SLOW but CLEAR** (O(ns * nv^2)), ideal for teaching,
+#' reproducibility, and appendices. For large nv use a block/sparse approach.
+#'
+#' @param partitions Integer/character/factor **matrix** of size nv × ns
+#'   (rows = nodes, columns = partitions), OR a **vector** of length nv for the
+#'   single-partition (degenerate) case. `partitions[v, i]` is the label of node v
+#'   in partition i. Labels may be integers, characters, or factors.
+#' @param probs Optional numeric vector of length ns with nonnegative weights p̂[i]
+#'   that sum (approximately) to 1. If `partitions` encodes only one partition
+#'   (vector or one-column matrix) and `probs` is missing, it defaults to 1.
+#'   If provided and not summing to 1 within tolerance, it is softly normalized
+#'   with a warning.
+#' @param tol Numeric tolerance for the sum-to-1 check on `probs`. Default 1e-9.
+#'
+#' @returns
+#' An nv × nv numeric matrix Γ with entries in [0, 1] and unit diagonal.
+#'
+#' @details
+#' • Complexity: O(ns * nv^2). **Slow but crystal-clear** (explicit indicator in
+#'   the innermost loop).  
+#' • `partitions` must refer to a fixed node ordering across columns.  
+#' • Degenerate (single-partition) case: Γ[u, v] = 1 if u and v share the same
+#'   community in that partition, else 0; diagonal forced to 1.
+#'
+#' @examples
+#' # --- Multi-partition (nv = 5, ns = 2) as an nv × ns matrix ---
+#' P_mat <- cbind(
+#'   c(1,1,2,2,2),  # partition 1
+#'   c(1,2,2,2,2)   # partition 2
+#' )
+#' Gamma1 <- build_gamma_loops_matrix(P_mat, probs = c(0.6, 0.4))
+#'
+#' # --- Single-partition as a vector (degenerate case) ---
+#' P_vec <- c(1,1,2,2,2)  # length nv
+#' Gamma2 <- build_gamma_loops_matrix(P_vec)  # probs defaults to 1
+#'
+#' # --- Single-partition as a one-column matrix (nv × 1) ---
+#' P_one <- matrix(c(1,1,2,2,2), ncol = 1)
+#' Gamma3 <- build_gamma_loops_matrix(P_one, probs = 1)
+
+build_gamma_matrix <- function(partitions, probs = NULL, tol = 1e-9) {
+    # ---- Accept matrix (nv × ns) OR vector (length nv) --------------------------
+    if (is.null(partitions) || length(partitions) == 0L) {
+        stop("`partitions` must be a non-empty matrix (nv × ns) or a vector (length nv).")
+    }
+    
+    # Convert vector -> nv × 1 matrix for unified handling
+    if (!is.matrix(partitions)) {
+        # Expect a vector encoding a single partition
+        if (!is.atomic(partitions) && !is.factor(partitions)) {
+            stop("`partitions` must be a matrix or an atomic/factor vector.")
+        }
+        if (is.null(dim(partitions))) {
+            partitions <- matrix(partitions, ncol = 1L)
+        } else {
+            stop("Unexpected `partitions` structure; provide a vector or an nv × ns matrix.")
+        }
+    }
+    
+    # Now guaranteed matrix
+    nv <- nrow(partitions)
+    ns <- ncol(partitions)
+    if (nv < 1L || ns < 1L) {
+        stop("`partitions` must have at least one row (node) and one column (partition).")
+    }
+    if (anyNA(partitions)) {
+        stop("`partitions` contains NA values; please impute or remove them.")
+    }
+    
+    # ---- Handle probs (including degenerate single-partition defaults) ----------
+    if (is.null(probs)) {
+        if (ns == 1L) {
+            probs <- 1.0
+        } else {
+            stop("`probs` must be provided for multiple partitions (length ns).")
+        }
+    }
+    if (!is.numeric(probs) || length(probs) != ns) {
+        stop("`probs` must be a numeric vector of length equal to ncol(partitions).")
+    }
+    if (any(!is.finite(probs)) || any(probs < -1e-15)) {
+        stop("`probs` must be finite and nonnegative (within numerical tolerance).")
+    }
+    s <- sum(probs)
+    if (!is.finite(s) || s <= 0) {
+        stop("Sum of `probs` must be positive and finite.")
+    }
+    if (abs(s - 1) > max(tol, 1e-12)) {
+        warning("`probs` do not sum to 1; normalizing to sum exactly 1.")
+        probs <- probs / s
+    }
+    
+    # ---- Initialize Γ -----------------------------------------------------------
+    Gamma <- matrix(0.0, nrow = nv, ncol = nv)
+    
+    # ---- Plain triple loop (slow but clear) -------------------------------------
+    # For each partition i, for each pair (u, v), add weight if co-assigned.
+    for (i in seq_len(ns)) {
+        w <- probs[i]
+        memb <- partitions[, i]  # labels for partition i (length nv)
+        for (u in seq_len(nv)) {
+            for (v in seq_len(nv)) {
+                if (memb[u] == memb[v]) {
+                    Gamma[u, v] <- Gamma[u, v] + w
+                }
+            }
+        }
+    }
+    
+    # ---- Numerical safety and invariants ----------------------------------------
+    # Clip tiny excursions and enforce unit diagonal (each node co-occurs with itself).
+    Gamma[Gamma < 0] <- 0
+    Gamma[Gamma > 1] <- 1
+    diag(Gamma) <- 1
+    
+    return(Gamma)
+}
 
 #' Calculate Normalized Co-occurrence Matrix
 #'
@@ -272,42 +464,62 @@ solutions_space <-
 #'
 #' @export
 co_occurrence <- function(ssp) {
-    # calculates normalized co-occurrence matrix from solution space
-    # 
+    # Weighted co-occurrence (probability two nodes co-cluster across solutions)
+    # - Uses ssp$partitions: rows = nodes, cols = solutions (partitions)
+    # - Uses ssp$probabilities$phat as weights; defaults to equal weights
+    # - Returns an n_nodes x n_nodes symmetric matrix in [0, 1] with diag = 1
     
-    #keep only valid results
-    keep_valid_results = ssp$data$valid  
-    M <- ssp$M[, keep_valid_results]
-    sspdata<-ssp$data[ keep_valid_results,]
+    # --- inputs ---
+    M <- ssp$partitions
+    if (is.data.frame(M)) M <- as.matrix(M)
+    if (!is.numeric(M)) stop("ssp$partitions must be a numeric matrix of community labels.")
+    n_nodes <- nrow(M); n_solutions <- ncol(M)
+    if (is.null(n_nodes) || is.null(n_solutions) || n_nodes < 1 || n_solutions < 1)
+        stop("ssp$partitions must have at least one row (node) and one column (solution).")
     
-    # weight of each solution 
-    alpha <- sspdata$median / sum(sspdata$median) 
+    # --- weights ---
+    w <- ssp$probabilities$phat
+    if (is.null(w) || length(w) != n_solutions || any(!is.finite(w))) {
+        w <- rep(1 / n_solutions, n_solutions)    # equal weights fallback
+    } else {
+        s <- sum(w)
+        if (!isTRUE(all.equal(s, 1))) w <- w / s  # normalize to sum to 1
+    }
     
-    # initialize co-occurrence matrix D
-    n_nodes <- nrow(M)
-    D <- matrix(0, nrow = n_nodes, ncol = n_nodes)
-    rownames(D) <- rownames(M)
+    # --- initialize output ---
+    if (is.null(rownames(M))) rownames(M) <- as.character(seq_len(n_nodes))
+    D <- matrix(0, nrow = n_nodes, ncol = n_nodes,
+                dimnames = list(rownames(M), rownames(M)))
+    rownames(D) <- rownames(M) 
     colnames(D) <- rownames(M)
     
-    # calculate co-occurrence
-    n_solutions <- nrow(sspdata)
-    for (t in (1:n_solutions)) {
-        n_comms <- max(M[, t])
-        for (k in 1:n_comms) {
-            comm_members <- which(M[, t] == k)
+    # --- accumulate co-occurrences ---
+    for (t in seq_len(n_solutions)) {
+        labels_t <- M[, t]
+        if (anyNA(labels_t)) next  # skip NA labels in this solution
+        
+        # Use unique labels (includes 0 if present) — avoids the 1:max(...) pitfall
+        for (k in sort(unique(labels_t))) {
+            comm_members <- which(labels_t == k)
             nc <- length(comm_members)
-            for (i in 1:nc) {
-                for (j in (i+1):nc) {
-                    D[comm_members[j], comm_members[i]] <- D[comm_members[j], comm_members[i]] + alpha[t]
-                    D[comm_members[i], comm_members[j]] <- D[comm_members[j], comm_members[i]]
+            if (nc >= 2) {
+                # pairwise updates within the community
+                for (i in 1:(nc - 1)) {
+                    for (j in (i + 1):nc) {
+                        ii <- comm_members[i]; jj <- comm_members[j]
+                        D[ii, jj] <- D[ii, jj] + w[t]
+                        D[jj, ii] <- D[ii, jj]           # keep symmetric
+                    }
                 }
             }
+            # (nc == 1): no pairs to update
         }
     }
     
-    diag(D)<-1.0
-
-    return (D)
+    # Every node co-occurs with itself with probability 1
+    diag(D) <- 1
+    
+    return(D)
 }
 
 

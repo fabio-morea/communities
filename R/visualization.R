@@ -153,7 +153,7 @@ plot_sol_space <- function(sol_space) {
                        shape = if_else(valid == TRUE, "v", "NV"), 
                        color = if_else(valid == TRUE, "v", "NV"), 
                    size = 3)) +
-        scale_shape_manual(values = c("v" = 16, "NV" = 124)) +  # 16 = circle, 3 = cross
+        scale_shape_manual(values = c("v" = 16, "NV" = 18)) +  # 16 = circle 4 = X
         scale_color_manual(values = c("v" = "black", "NV" = "red")) +
         geom_vline(xintercept = 0.5,
                    color = "red",
@@ -203,7 +203,7 @@ plot_sol_space <- function(sol_space) {
     #heatmap
     if (nrow(sol_space$data)>=2) {
         
-    simil_df <- as.data.frame(ssp$simil)
+    simil_df <- as.data.frame(sol_space$simil)
     simil_df$Partition1 <- rownames(simil_df)
     simil_long <- simil_df %>%
             pivot_longer(cols = -Partition1, names_to = "Partition2", values_to = "similarity") %>%
@@ -215,10 +215,10 @@ plot_sol_space <- function(sol_space) {
                    Partition2 = factor(Partition2, levels = unique(Partition2)))
     
     pl4 <-  ggplot(simil_long, aes(x = Partition2, y = Partition1, fill = similarity)) +
-        geom_tile(color = "white", size = 0.5) +  # Add thin white border around the tiles
-        scale_fill_distiller(palette = "PiYG", direction = 1, limits = c(0, 1), 
-                             na.value = "white", guide = "colorbar") +
-        labs(x = "Solutions", y = "Solutions", title = "Heatmap of Similarity Matrix") +
+        geom_tile(color = "white", size = 0.5) + 
+        scale_fill_gradient(low = "red", high = "green", limits = c(0, 1), 
+                            na.value = "white", guide = "colorbar") +
+        labs(x = "Solutions", y = "Solutions", title = "") +
         theme_minimal(base_size = 14) +  # Slightly increase base font size for clarity
         theme(
             axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),  # Align x-axis text vertically

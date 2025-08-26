@@ -2,49 +2,39 @@
 % Please edit documentation in R/ring_of_cliques.R
 \name{make_ring_of_cliques}
 \alias{make_ring_of_cliques}
-\title{Create a Ring of Cliques Graph with Optional Bridge and Central Node}
+\title{Ring of Cliques (RC, RC_B, RC_C, RC_BC)
+\itemize{
+\item RC:    ring edges from c(k,1) to c(k+1,2)
+\item RC_B:  RC + bridge nodes: c(k,2) -- b_k -- c(k+1,3)
+\item RC_C:  RC + center connected to c(k,1)
+\item RC_BC: RC + bridges + center
+}}
 \usage{
 make_ring_of_cliques(
-  num_cliques,
+  n_cliques,
   clique_size,
-  add_center = TRUE,
-  add_bridges = TRUE
+  variant = c("RC", "RC+C", "RC+B", "RC+BC", "RC_C", "RC_B", "RC_BC"),
+  set_names = TRUE
 )
 }
 \arguments{
-\item{num_cliques}{An integer specifying the number of cliques o include in the ring.}
+\item{n_cliques}{integer >= 2}
 
-\item{clique_size}{An integer specifying the number of nodes in each clique.}
+\item{clique_size}{integer >= 3 (needs nodes 1,2,3)}
 
-\item{add_center}{A logical value indicating whether to add a central node that connects to all cliques.
-Default is \code{TRUE}.}
+\item{variant}{one of "RC","RC_B","RC_C","RC_BC"}
 
-\item{add_bridges}{A logical value indicating whether to add bridge nodes between adjacent cliques in the ring.
-Default is \code{TRUE}.}
+\item{set_names}{logical, add readable names}
 }
 \value{
-An iGraph object representing the ring of cliques. Each node is assigned a community label,
-with cliques labeled as \verb{C1, C2, ...}, bridge nodes labeled as \verb{B1, B2, ...}, and the central node labeled as \code{A}. The graph is undirected. All edges have weight = 1.
+igraph
 }
 \description{
-The \code{make_ring_of_cliques} function generates a graph composed of multiple fully connected
-subgraphs (cliques) arranged in a ring. Optionally, "bridge nodes" can be added between cliques, and
-a central node can be added that connects to all cliques.
-}
-\details{
-This function creates a network structure where cliques are connected in a ring formation.
-Rings of cliques are useful for testing community detection algorithms: varying the parameters one can create several toy examples of controlled complexity, ranging from trivially simple to particularly challenging.
+Ring of Cliques (RC, RC_B, RC_C, RC_BC)
 \itemize{
-\item If \code{add_bridges} is \code{TRUE}, additional bridge nodes are inserted between each adjacent pair of cliques,
-with edges connecting the cliques.
-\item If \code{add_center} is \code{TRUE}, a central node is added, connected to a node in each clique, creating a star-like structure.
+\item RC:    ring edges from c(k,1) to c(k+1,2)
+\item RC_B:  RC + bridge nodes: c(k,2) -- b_k -- c(k+1,3)
+\item RC_C:  RC + center connected to c(k,1)
+\item RC_BC: RC + bridges + center
 }
-}
-\examples{
-# Create a ring of 4 cliques, each with 5 nodes, with both bridges and a central node
-ring_of_cliques <- make_ring_of_cliques(num_cliques = 4, clique_size = 5, add_center = TRUE, add_bridges = TRUE)
-
-# Create a ring of 3 cliques without bridges or a central node
-ring_of_cliques_no_center <- make_ring_of_cliques(num_cliques = 3, clique_size = 4, add_center = FALSE, add_bridges = FALSE)
-
 }
