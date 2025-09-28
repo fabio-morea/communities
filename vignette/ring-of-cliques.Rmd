@@ -1,10 +1,10 @@
 ---
 title: "communities library - Rings of Cliques"
 output:
-  pdf_document: default
+  html_document:
+    df_print: paged
   html_notebook: default
-vignette: >
- 
+vignette: null
 ---
 
 ```{r setup, include=FALSE}
@@ -161,5 +161,4 @@ sort(table(E(g)$edge_type))
 -   The construction is deterministic and idempotent: given the same parameters, you always obtain the same graph structure and vertex order.
 
 This makes the functions suitable for benchmarking community detection algorithms under controlled conditions.
-
 
