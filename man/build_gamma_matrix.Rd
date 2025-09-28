@@ -2,53 +2,43 @@
 % Please edit documentation in R/detection.R
 \name{build_gamma_matrix}
 \alias{build_gamma_matrix}
-\title{Build the pairwise agreement matrix Γ via explicit triple loops}
+\title{Build Pairwise Agreement Matrix (Gamma) from Solution Space}
 \usage{
-build_gamma_matrix(partitions, probs = NULL, tol = 1e-09)
+build_gamma_matrix(
+  partitions,
+  solution_probabilities = NULL,
+  tolerance = 1e-09
+)
 }
 \arguments{
-\item{partitions}{Integer/character/factor \strong{matrix} of size nv × ns
-(rows = nodes, columns = partitions), OR a \strong{vector} of length nv for the
-single-partition (degenerate) case. \code{partitions[v, i]} is the label of node v
-in partition i. Labels may be integers, characters, or factors.}
+\item{partitions}{Matrix (n_vertices × n_solutions) of community assignments,
+OR a vector (length n_vertices) for single-partition case.}
 
-\item{probs}{Optional numeric vector of length ns with nonnegative weights p̂\link{i}
-that sum (approximately) to 1. If \code{partitions} encodes only one partition
-(vector or one-column matrix) and \code{probs} is missing, it defaults to 1.
-If provided and not summing to 1 within tolerance, it is softly normalized
-with a warning.}
+\item{solution_probabilities}{Optional numeric vector of length n_solutions
+with non-negative weights that sum to 1. Defaults to equal weights.}
 
-\item{tol}{Numeric tolerance for the sum-to-1 check on \code{probs}. Default 1e-9.}
+\item{tolerance}{Numeric tolerance for probability sum validation (default: 1e-9).}
 }
 \value{
-An nv × nv numeric matrix Γ with entries in \link{0, 1} and unit diagonal.
+An n_vertices × n_vertices symmetric matrix with entries in \link{0, 1}
+and unit diagonal.
 }
 \description{
-Direct, publication-style implementation of
-γ_uv = Σ_i p_hat\link{i} * 1{u and v co-occur in the same community in partition i}.
-This version is intentionally \strong{SLOW but CLEAR} (O(ns * nv^2)), ideal for teaching,
-reproducibility, and appendices. For large nv use a block/sparse approach.
+Computes the pairwise agreement matrix Gamma where entry (u,v) represents
+the probability that nodes u and v are assigned to the same community,
+weighted by solution probabilities.
 }
 \details{
-• Complexity: O(ns * nv^2). \strong{Slow but crystal-clear} (explicit indicator in
-the innermost loop).
-• \code{partitions} must refer to a fixed node ordering across columns.
-• Degenerate (single-partition) case: Γ\link{u, v} = 1 if u and v share the same
-community in that partition, else 0; diagonal forced to 1.
+The agreement matrix is computed as: Gamma\link{u,v} = sum_i p\link{i} * I(u and v
+co-occur in partition i), where I is the indicator function and p\link{i} is
+the probability of partition i.
 }
 \examples{
-# --- Multi-partition (nv = 5, ns = 2) as an nv × ns matrix ---
-P_mat <- cbind(
-  c(1,1,2,2,2),  # partition 1
-  c(1,2,2,2,2)   # partition 2
+# Multi-partition example
+partition_matrix <- cbind(
+  c(1, 1, 2, 2, 2),  # partition 1
+  c(1, 2, 2, 2, 2)   # partition 2
 )
-Gamma1 <- build_gamma_loops_matrix(P_mat, probs = c(0.6, 0.4))
+gamma_matrix <- build_gamma_matrix(partition_matrix, solution_probabilities = c(0.6, 0.4))
 
-# --- Single-partition as a vector (degenerate case) ---
-P_vec <- c(1,1,2,2,2)  # length nv
-Gamma2 <- build_gamma_loops_matrix(P_vec)  # probs defaults to 1
-
-# --- Single-partition as a one-column matrix (nv × 1) ---
-P_one <- matrix(c(1,1,2,2,2), ncol = 1)
-Gamma3 <- build_gamma_loops_matrix(P_one, probs = 1)
 }

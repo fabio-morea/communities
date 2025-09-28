@@ -4,21 +4,21 @@
 \alias{solution_space_type}
 \title{Classify Solution Space Taxonomy}
 \usage{
-solution_space_type(ssp)
+solution_space_type(solution_space_result)
 }
 \arguments{
-\item{ssp}{A list output from \code{solutions_space_DM()}. It must contain
-at least the elements \code{partitions}, \code{probabilities}, and \code{log}.}
+\item{solution_space_result}{A list output from \code{solutions_space_DM()}.
+Must contain at least \code{partitions}, \code{probabilities}, and \code{log}.}
 }
 \value{
-A single character string indicating the type of solution space. One of:
+A single character string indicating the type of solution space:
 \describe{
 \item{\code{"Empty"}}{No valid partitions found (only degenerate ones).}
 \item{\code{"Single"}}{Only one solution is credible and clearly identified.}
 \item{\code{"Dominant"}}{One solution has a strictly dominant posterior.}
 \item{\code{"Multiple"}}{Multiple solutions with no clear dominance.}
 \item{\code{"Sparse"}}{Too many solutions relative to trials (unstable space).}
-\item{\code{"... uncertain..."}}{Atypical configuration not falling into other types.}
+\item{\code{"Uncertain"}}{Atypical configuration not falling into other types.}
 }
 }
 \description{
@@ -27,15 +27,26 @@ high-level label to the solution space, based on the number and posterior
 credibility of distinct partitions found.
 }
 \details{
-The function checks the number of credible solutions, posterior intervals, and convergence
-log data to categorize the structure of the solution space. Degenerate solutions
-(e.g., all nodes in one group or all in separate groups) are excluded from classification.
+The function checks the number of credible solutions, posterior intervals, and
+convergence log data to categorize the structure of the solution space. Degenerate
+solutions (e.g., all nodes in one group or all in separate groups) are excluded
+from classification.
+
+Classification logic:
+\itemize{
+\item{\strong{Empty}}: No solutions or all solutions are degenerate
+\item{\strong{Single}}: Exactly one valid solution
+\item{\strong{Dominant}}: One solution's lower CI bound exceeds all others' upper bounds
+\item{\strong{Sparse}}: Many solutions relative to trials (ratio ≥ 0.20) with budget exhausted
+\item{\strong{Multiple}}: Multiple solutions, no clear dominance, max lower bound < 0.5
+\item{\strong{Uncertain}}: All other cases
+}
 }
 \examples{
 \dontrun{
-g <- igraph::make_ring(10)
-ssp <- solutions_space_DM(g, n_trials = 100, met = "IM", seed = 123)
-solution_space_type(ssp)
+graph <- igraph::make_ring(10)
+solution_space_result <- solutions_space_DM(graph, n_trials = 100, method = "IM")
+solution_space_type(solution_space_result)
 }
 
 }

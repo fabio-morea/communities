@@ -1,197 +1,456 @@
 ---
-title: "communities library - Rings of Cliques"
+title: "Getting Started with the Communities Package"
+author: "Fabio Morea"
+date: "`r Sys.Date()`"
 output:
   html_document:
     df_print: paged
-  html_notebook: default
-vignette: null
+vignette: "%\\VignetteIndexEntry{Getting Started with the Communities Package} %\\VignetteEncoding{UTF-8}
+  %\\VignetteEngine{knitr::rmarkdown}\n"
+editor_options:
+  markdown:
+    wrap: 72
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6, fig.height = 4)
-set.seed(123) # reproducibility for layouts only
-suppressPackageStartupMessages({
-  library(dplyr)
-  library(tibble)
-  library(igraph) 
-})
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5,
+  warning = FALSE,
+  message = FALSE
+)
 
-library(tidyverse)
-library(knitr)   # for kable()
-library(igraph)
+# Load required packages
 library(communities)
+library(igraph)
+library(dplyr)
+library(ggplot2)
 ```
 
-## Rings of cliques
+## Introduction
 
-This vignette shows how to create **Ring-of-Cliques (RC)**, a simple test-network, using `communities::make_ring_of_cliques()` with four variants:
+The `communities` package addresses fundamental reproducibility issues
+in network community detection by providing a comprehensive framework
+for solution space exploration. Rather than accepting a single algorithm
+run, this package systematically explores the complete solution space
+through controlled randomization and Bayesian modeling.
 
--   **RC**
--   **RC_B** — ring bridges between adjacent cliques
--   **RC_C** — one central node connected to each clique
--   **RC_BC** — both ring bridges **and** central node
+### The Problem with Traditional Community Detection
 
-Each clique is a ground-truth community. The function annotates vertices with:
+Traditional community detection workflows suffer from three critical
+issues:
 
--   `gt_community` (numeric),
+1.  **Solution multiplicity**: Many networks admit multiple valid
+    community structures
+2.  **Input ordering bias**: Results depend on arbitrary node/edge
+    processing order
+3.  **Outlier handling**: Nodes that don't clearly belong to any
+    community are poorly managed
 
--   `gt_label` (character),
+This package provides principled solutions to all three problems.
 
--   `clique_id`, `within_id`,
+## Core Concepts
 
--   role flags (`role`, `is_bridge_endpoint`, `is_center_endpoint`).
+### Solution Space Exploration
 
-Graphs are constructed deterministically: all clique vertices come first, the optional center (if any) is last.
+Instead of running a community detection algorithm once, we run it
+multiple times with systematic vertex permutation. This reveals the full
+solution space and quantifies the stability of different partitions.
 
-------------------------------------------------------------------------
+### Bayesian Framework
 
-```{r}
+Solution probabilities are modeled using a Dirichlet-Multinomial
+framework with Beta credible intervals, providing principled uncertainty
+quantification and convergence assessment.
 
-g  <- communities::make_ring_of_cliques(
-    n_cliques = 5,
-    clique_size = 10,
-    variant = "RC+BC"
-)
+### Solution Space Taxonomy
 
-plot(
-  g,
-  vertex.color = degree(g),
-  vertex.label = NA,
-  vertex.size = 15,
-  edge.color = "grey70",
-)
- 
- 
+Results are classified into five interpretable categories: - **Single**:
+One stable solution - **Dominant**: One solution clearly separated from
+alternatives - **Multiple**: Several solutions with comparable
+probabilities - **Sparse**: Many low-probability solutions (often
+indicating instability) - **Empty**: No valid community structure
+detected
+
+## Basic Workflow
+
+### Step 1: Create or Load a Network
+
+Let's start with a simple example using a ring of cliques network:
+
+```{r create_network}
+# Create a ring of cliques with known community structure
+set.seed(42)
+graph <- make_ring_of_cliques(n_cliques = 4, 
+                              clique_size = 6, 
+                              variant = "RC+C")
+
+# Basic network properties
+cat("Network properties:\n")
+cat("Vertices:", vcount(graph), "\n")
+cat("Edges:", ecount(graph), "\n")
+cat("Ground truth communities:", max(V(graph)$gt_community), "\n")
+
+# Visualize the network
+plot(graph, 
+     vertex.color = V(graph)$gt_community,
+     vertex.size = 15,
+     vertex.label = NA,
+     main = "Ring of Cliques Network")
 ```
 
-```{r}
+### Step 2: Explore the Solution Space
 
-ssp <- communities::solutions_space_DM(g, 
-                                       verbose = FALSE, 
-                                       met = "LV")
-cat(
-    sprintf(
-        "The solution space exploration stopped after %d trials due to '%s'. ",
-        ssp$log$stop_trial,
-        ssp$log$stop_reason
-    )
+Now we systematically explore the solution space using the Infomap
+algorithm:
+
+```{r explore_solution_space}
+# Explore solution space with systematic vertex permutation
+solution_space_result <- solutions_space_DM(
+  graph = graph,
+  n_trials = 200,            # Number of algorithm trials
+  method = "LV",             # algorithm
+  precision_threshold = 0.1, # Convergence threshold
+  random_seed = 123         # For reproducibility
 )
 
-cat(
-    sprintf(
-        "It was run with confidence level %.3f, and a maximum CI width of %.3f. ",
-        ssp$log$confidence,
-        max(ssp$log$max_ci_width)
-    )
-)
-
-cat(
-    sprintf(
-        "The counts were recorded both in long format (%d rows) and in matrix format (%d × %d).",
-        nrow(ssp$log$counts_long),
-        nrow(ssp$log$counts_matrix),
-        ncol(ssp$log$counts_matrix)
-    )
-)
-
-
+# View the discovered solutions
+knitr::kable(solution_space_result$probabilities, 
+             digits = 3,
+             caption = "Solution Space Results")
 ```
 
+### Step 3: Classify the Solution Space
 
-# use solution space to singal outliers
+Determine what type of solution space we discovered:
 
-```{r}
- 
-signal_outliers <- function(graph,
-                            D,
-                            method = c("quantile", "mad", "fixed"),
-                            alpha = 0.05,
-                            k = 3,
-                            threshold = 0.5) {
-  method <- match.arg(method)
+```{r classify_solution_space}
+# Classify the solution space type
+space_type <- communities::solution_space_type(solution_space_result)
+cat("Solution space type:", space_type, "\n")
 
-  # --- Align D to graph order if names are available 
-  n <- igraph::vcount(graph)
-  if (!is.matrix(D) || nrow(D) != ncol(D)) stop("`D` must be a square matrix.")
-  if (!is.null(rownames(D)) && !is.null(igraph::V(graph)$name)) {
-    idx <- match(igraph::V(graph)$name, rownames(D))
-    if (any(is.na(idx))) stop("Vertex names of `graph` do not match rownames of `D`.")
-    D <- D[idx, idx, drop = FALSE]
-  } else if (nrow(D) != n) {
-    stop("Size mismatch: number of vertices in `graph` must equal nrow(D).")
+# Examine convergence
+cat("Convergence details:\n")
+cat("- Stopped at trial:", solution_space_result$log$stop_trial, "\n")
+cat("- Reason:", solution_space_result$log$stop_reason, "\n")
+cat("- Final CI width:", tail(solution_space_result$log$max_ci_width, 1), "\n")
+```
+
+### Step 4: Quality Assessment
+
+Assess the quality of discovered solutions:
+
+```{r quality_assessment}
+# Comprehensive quality assessment
+quality_results <- quality_check(graph, solution_space_result)
+
+# Provide interpretive summary
+cat("Quality Assessment Summary:\n")
+cat("========================\n")
+cat("Total solutions found:", nrow(quality_results), "\n")
+cat("Valid solutions:", sum(quality_results$valid, na.rm = TRUE), "\n")
+cat("Invalid solutions:", sum(!quality_results$valid, na.rm = TRUE), "\n")
+
+if (any(!quality_results$valid)) {
+  cat("\nReasons for invalidity:\n")
+  invalid_reasons <- quality_results$reason[!quality_results$valid]
+  invalid_reasons <- invalid_reasons[invalid_reasons != ""]
+  if (length(invalid_reasons) > 0) {
+    for (reason in unique(invalid_reasons)) {
+      count <- sum(invalid_reasons == reason)
+      cat("-", reason, "(", count, "solutions )\n")
+    }
   }
+}
 
-  # --- Safety clamp to [0,1] and ignore diagonal in scoring -------------------
-  D[!is.finite(D)] <- 0
-  D[D < 0] <- 0; D[D > 1] <- 1
-  diag(D) <- 0  # self-pairs excluded by definizione della media sui vicini
-
-  # --- Adjacency (mask of neighbors) ------------------------------------------
-  A <- as.matrix(igraph::as_adjacency_matrix(graph, sparse = FALSE))
-  diag(A) <- 0
-  deg <- rowSums(A)
-
-  # --- Gamma: mean over neighbors; zeros kept for non-co-occurring neighbors --
-  # Numeratore = somma D[v, u] su u vicini; Denominatore = grado (num. vicini)
-  num <- rowSums(D * A)
-  gamma <- ifelse(deg > 0, num / deg, 0)
-
-  # --- Outlier rule ------------------------------------------------------------
-  if (method == "quantile") {
-    cut <- stats::quantile(gamma, probs = alpha, na.rm = TRUE)
-    is_outlier <- gamma <= cut
-  } else if (method == "mad") {
-    med  <- stats::median(gamma, na.rm = TRUE)
-    madv <- stats::mad(gamma, constant = 1.4826, na.rm = TRUE)
-    score <- (med - gamma) / ifelse(madv > 0, madv, Inf)
-    is_outlier <- score >= k
-  } else { # fixed
-    is_outlier <- gamma <= threshold
+# Highlight best solutions
+if (any(quality_results$valid)) {
+  best_solutions <- quality_results[quality_results$valid, ]
+  best_solutions <- best_solutions[order(best_solutions$modularity, decreasing = TRUE), ]
+  
+  cat("\nTop valid solutions by modularity:\n")
+  top_3 <- head(best_solutions, 3)
+  for (i in 1:nrow(top_3)) {
+    cat(sprintf("Solution %d: Modularity=%.3f, Communities=%d, μ=%.3f\n",
+                top_3$solution_id[i], top_3$modularity[i], 
+                top_3$k[i], top_3$mu[i]))
   }
+}
+```
 
-  nm <- igraph::V(graph)$name
-  if (is.null(nm)) nm <- as.character(seq_len(n))
+## Advanced Analysis
 
-  data.frame(
-    node_id    = seq_len(n),
-    name       = nm,
-    degree     = deg,
-    gamma      = gamma,
-    is_outlier = as.logical(is_outlier),
-    stringsAsFactors = FALSE
+### Building Consensus Communities
+
+When multiple solutions exist, we can build consensus communities:
+
+```{r consensus_analysis}
+# Build co-occurrence matrix
+co_occurrence_matrix <- co_occurrence(solution_space_result)
+
+# Find consensus communities
+consensus_result <- consensus_communities(
+  co_occurrence_matrix = co_occurrence_matrix, 
+  co_occurrence_threshold = 0.5,
+  group_outliers = FALSE
+)
+
+# Summarize consensus results
+consensus_summary <- consensus_result %>%
+  group_by(consensus_community_label) %>%
+  summarise(
+    community_size = n(),
+    avg_confidence = mean(uncertainty_coefficient, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(community_size))
+
+knitr::kable(consensus_summary,
+             digits = 3,
+             caption = "Consensus Communities Summary")
+```
+
+### Outlier Detection
+
+Identify nodes with uncertain community membership:
+
+```{r outlier_analysis}
+# Identify potential outliers based on uncertainty
+outlier_candidates <- consensus_result %>%
+  filter(uncertainty_coefficient > 0.3) %>%  # High uncertainty threshold
+  arrange(desc(uncertainty_coefficient))
+
+if (nrow(outlier_candidates) > 0) {
+  knitr::kable(outlier_candidates,
+               digits = 3,
+               caption = "Potential Outlier Nodes")
+} else {
+  cat("No outliers detected with uncertainty > 0.3\n")
+}
+```
+
+## Visualization
+
+### Solution Space Evolution
+
+Track how solution probabilities evolve during exploration:
+
+```{r solution_evolution, fig.width=8, fig.height=5}
+# Plot convergence of credible interval widths instead
+convergence_data <- data.frame(
+  trial = 1:solution_space_result$log$stop_trial,
+  ci_width = solution_space_result$log$max_ci_width
+)
+
+ggplot(convergence_data, aes(x = trial, y = ci_width)) +
+  geom_line(color = "steelblue", size = 1) +
+  geom_hline(yintercept = solution_space_result$log$precision_threshold, 
+             color = "red", linetype = "dashed", alpha = 0.7) +
+  labs(title = "Solution Space Exploration Convergence",
+       subtitle = paste("Stopped at trial", solution_space_result$log$stop_trial, 
+                        "- Reason:", solution_space_result$log$stop_reason),
+       x = "Trial Number", 
+       y = "Maximum Confidence Interval Width") +
+  theme_minimal()
+```
+
+```{r}
+communities::plot_sol_space_evolution(solution_space_result)
+```
+
+### Solution Comparison
+
+Compare the different solutions found:
+
+```{r solution_comparison, fig.width=10, fig.height=8}
+# Plot all solutions found
+plot_solutions(
+  graph, 
+  solution_space_result,
+  add_node_labels = FALSE,
+  add_prob_labels = TRUE,
+  add_title = TRUE
+)
+```
+
+## Comparing Different Algorithms
+
+Let's compare how different algorithms behave on the same network:
+
+```{r algorithm_comparison}
+# Compare multiple algorithms
+algorithms <- c("IM", "LV", "LD", "WT")
+algorithm_results <- list()
+
+for (alg in algorithms) {
+  cat("Running", alg, "algorithm...\n")
+  algorithm_results[[alg]] <- solutions_space_DM(
+    graph = graph,
+    n_trials = 30,  # Fewer trials for comparison
+    method = alg,
+    precision_threshold = 0.15,
+    verbose = FALSE,
+    random_seed = 123
   )
 }
- 
+
+# Compare solution space types
+comparison_summary <- data.frame(
+  Algorithm = algorithms,
+  Solution_Space_Type = sapply(algorithm_results, solution_space_type),
+  N_Solutions = sapply(algorithm_results, function(x) ncol(x$partitions)),
+  N_Trials = sapply(algorithm_results, function(x) x$log$stop_trial),
+  Converged = sapply(algorithm_results, function(x) x$log$stop_reason == "precision_achieved")
+)
+
+knitr::kable(comparison_summary,
+             caption = "Algorithm Comparison Results")
+```
+
+## Real-World Example: Karate Club Network
+
+Let's apply the framework to a classic network dataset:
+
+```{r karate_club_example}
+# Load the classic karate club network
+karate_graph <- make_graph("Zachary")
+
+# Add edge weights (all equal for this example)
+E(karate_graph)$weight <- 1
+
+# Explore solution space
+karate_solution_space <- solutions_space_DM(
+  graph = karate_graph,
+  n_trials = 100,
+  method = "LV",  # Louvain algorithm
+  precision_threshold = 0.1,
+  verbose = FALSE,
+  random_seed = 456
+)
+
+# Results summary
+cat("Karate Club Network Analysis:\n")
+cat("Solution space type:", solution_space_type(karate_solution_space), "\n")
+cat("Number of solutions found:", ncol(karate_solution_space$partitions), "\n")
+
+# Show solution probabilities
+karate_solution_space$probabilities
+
+communities::plot_solutions(karate_graph,karate_solution_space)
 ```
 
 ```{r}
-Gamma<-co_occurrence(ssp)
-outls <- signal_outliers(g, Gamma)
-hist(outls$gamma)
-gamma_vals <- outls$gamma
-node_colors <- rgb(1 - gamma_vals, gamma_vals, 0)
- 
-plot(
-  g,
-  vertex.color = node_colors,
-  vertex.size = 20,
-  vertex.label = NA,
-  main = "outliers a are highlighted in red"
-)
-# add a legend
-legend(
-  "topleft",
-  legend = c("gamma = 0", "gamma = 1"),
-  fill   = c("red", "green"),
-  border = NA,
-  bty    = "n",
-  title  = "Gamma scale"
-)
-
+communities::plot_sol_space_evolution(karate_solution_space)
 ```
 
  
 
- 
+## Best Practices
 
-  
+### 1. Parameter Selection
+
+**Number of trials**: Start with 50-100 trials. Increase if you get
+"Sparse" solution spaces.
+
+**Precision threshold**: Use 0.05 for exploratory analysis, 0.02 for
+publication-quality results.
+
+**Algorithm choice**: - **Infomap (IM)**: Good general-purpose
+algorithm - **Louvain (LV)**: Fast, good for large networks - **Leiden
+(LD)**: Improved version of Louvain - **Walktrap (WT)**: Based on random
+walks
+
+### 2. Interpreting Results
+
+**Single solution space**: Safe to report the unique solution.
+
+**Dominant solution space**: Report the dominant solution but
+acknowledge alternatives exist.
+
+**Multiple solution space**: Consider consensus communities or report
+the uncertainty.
+
+**Sparse solution space**: May indicate lack of clear community
+structure.
+
+### 3. Quality Assessment
+
+Always check solution quality:
+
+-   Modularity should be positive (preferably \> 0.3)
+
+-   Mixing parameter should be \< 0.5
+
+-   Communities should be internally connected
+
+### 4. Reproducibility
+
+Always set a random seed for reproducible results:
+
+```{r reproducibility_example}
+# Example of reproducible analysis
+set.seed(789)
+result1 <- solutions_space_DM(graph, n_trials = 20, method = "IM", verbose = FALSE)
+
+set.seed(789)  # Same seed
+result2 <- solutions_space_DM(graph, n_trials = 20, method = "IM", verbose = FALSE)
+
+# Results should be identical
+identical(result1$probabilities, result2$probabilities)
+```
+
+## Common Issues and Solutions
+
+### Issue 1: "Sparse" Solution Spaces
+
+**Problem**: Algorithm finds many different solutions with low
+probabilities.
+
+**Solutions**: - Increase number of trials - Try a different algorithm -
+Check if the network actually has clear community structure - Consider
+that the network may be inherently ambiguous
+
+### Issue 2: All Solutions Invalid
+
+**Problem**: Quality assessment marks all solutions as invalid.
+
+**Solutions**: - Relax quality thresholds (e.g., increase
+`mu_threshold`) - Check if the network has meaningful community
+structure - Examine the mixing parameter - values \> 0.5 suggest weak
+communities
+
+## Summary
+
+The `communities` package provides a principled approach to community
+detection that addresses fundamental reproducibility issues. Key
+benefits:
+
+1.  **Systematic exploration**: Reveals the complete solution space
+    rather than a single result
+2.  **Uncertainty quantification**: Provides confidence measures for
+    community assignments
+3.  **Bias mitigation**: Addresses input ordering bias through
+    controlled randomization
+4.  **Quality assessment**: Comprehensive evaluation of solution
+    validity
+5.  **Consensus building**: Methods to synthesize information across
+    multiple solutions
+
+This framework is particularly valuable for:
+
+-   Research requiring reproducible results
+
+-   Networks with ambiguous community structure
+
+-   Comparative studies of community detection algorithms
+
+-   Applications where uncertainty quantification is important
+
+## Further Reading
+
+For more details on the theoretical foundation, see:
+
+Morea, F. and De Stefano, D. (2024). "A Comprehensive Framework for
+Solution Space Exploration in Community Detection." *Under Review*.

@@ -4,36 +4,57 @@
 \alias{consensus_communities}
 \title{Identify Consensus Communities from Co-occurrence Matrix}
 \usage{
-consensus_communities(D, p, group_outliers = FALSE, verbose = FALSE)
+consensus_communities(
+  co_occurrence_matrix,
+  co_occurrence_threshold,
+  group_outliers = FALSE,
+  verbose = FALSE
+)
 }
 \arguments{
-\item{D}{A symmetric co-occurrence matrix where each entry represents the pairwise co-occurrence of nodes across multiple trials.}
+\item{co_occurrence_matrix}{A symmetric co-occurrence matrix where entries
+represent pairwise co-occurrence probabilities across multiple trials.}
 
-\item{p}{A numeric threshold for defining communities. Nodes are considered to be in the same community if their pairwise co-occurrence value is greater than \code{p}.}
+\item{co_occurrence_threshold}{Numeric threshold for defining communities.
+Nodes are considered in the same community if their pairwise co-occurrence
+exceeds this value.}
 
-\item{group_outliers}{A logical value indicating whether single-node communities (outliers) should be grouped together. Default is \code{FALSE}.}
+\item{group_outliers}{Logical indicating whether single-node communities
+(outliers) should be grouped together (default: FALSE).}
 
-\item{verbose}{A logical value indicating whether to print detailed progress information. Default is \code{FALSE}.}
+\item{verbose}{Logical indicating whether to print progress information
+(default: FALSE).}
 }
 \value{
-A dataframe containing the following columns:
-\itemize{
-\item \code{name}: The name of each node.
-\item \code{cons_comm_label}: The consensus community label assigned to the node.
-\item \code{gamma}: The uncertainty coefficient for each node, calculated as \code{1 - mean(di)} over all nodes that co-occur at least once in the same community.
-\item \code{comm_size}: The size of the community to which the node belongs.
-\item \code{single}: A boolean indicating whether the node is part of a single-node community (outlier).
+A data frame containing:
+\describe{
+\item{\code{node_name}}{Name of each node}
+\item{\code{consensus_community_label}}{Consensus community assignment}
+\item{\code{uncertainty_coefficient}}{Confidence measure (gamma) for assignment}
+\item{\code{community_size}}{Size of assigned community}
+\item{\code{is_singleton}}{Whether node forms single-node community}
 }
 }
 \description{
-The \code{consensus_communities} function identifies consensus communities from a co-occurrence matrix, grouping nodes into communities based on a threshold \code{p} for pairwise co-occurrence. It also calculates an uncertainty coefficient (\code{gamma}) for each node, reflecting how confidently each node belongs to its community. The function can handle outliers (single-node communities).
+Identifies consensus communities from a co-occurrence matrix by grouping nodes
+based on a threshold for pairwise co-occurrence. Computes uncertainty coefficients
+reflecting confidence in community assignments.
 }
 \details{
-The function processes the co-occurrence matrix by iteratively grouping nodes into communities based on the threshold \code{p}. For each identified community, it computes the uncertainty coefficient \code{gamma} for each node, which quantifies how strongly a node is tied to its community. The function can optionally group outliers.
+The algorithm iteratively identifies communities as connected components in
+the thresholded co-occurrence matrix. The uncertainty coefficient gamma is
+computed as 1 - mean(co-occurrence values) for nodes that co-occur at least
+once with the focal node.
 }
 \examples{
-# Assume D is a co-occurrence matrix
-results <- consensus_communities(D, p = 0.5, group_outliers = TRUE)
-print(results)
+\dontrun{
+# Assume co_occurrence_matrix is a co-occurrence matrix
+consensus_result <- consensus_communities(
+  co_occurrence_matrix, 
+  co_occurrence_threshold = 0.5, 
+  group_outliers = TRUE
+)
+print(consensus_result)
+}
 
 }

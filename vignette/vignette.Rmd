@@ -1,0 +1,94 @@
+
+---
+title: "Vignette: create a benchmark network and explore solution space"
+author: "Fabio Morea"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{RIng of Cliques and solution space}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+
+# scope
+This vignette illustrates the complete workflow of 'communities' library.
+
+```{r libraries, message=FALSE, warning=FALSE}
+# required packages
+library(igraph)
+library(communities)
+
+# additional packages to improve workflow and figures
+library(tidyverse)
+library(gridExtra)
+library(patchwork)
+```
+
+
+# Benchmark networks
+We start by building a simple benchmark network: a Ring of Cliques (RC) composed of 5 cliques of 6 nodes each. In such a simple case communities are easily identified by any community detection algorithm.
+ 
+
+```{r example1, message=FALSE, warning=FALSE}
+RC_simple <- communities::make_ring_of_cliques(n_cliques = 5, clique_size = 5, variant = "RC")
+    
+partition <- igraph::cluster_louvain(RC_simple)
+
+plot(partition, RC_simple)
+ 
+ 
+```
+
+However, RC can be used to produce a network in which community boundaries are less clear. 
+
+```{r example2, message=FALSE, warning=FALSE}
+RC_c <- communities::make_ring_of_cliques(n_cliques = 5, 
+                                          clique_size = 5, 
+                                          variant = "RC_C")
+
+node_positions <- igraph::layout.fruchterman.reingold(RC_c)
+partition <- igraph::cluster_louvain(RC_c)
+plot(partition, RC_c, layout = node_positions)
+ 
+
+```
+The central node can either belong to any of the cliques or be considered its own single-node community. This presents a challenge for both algorithms and human analysts alike, as it creates ambiguity in community assignment. Consequently, we can anticipate five equally probable solutions, where the central node is equally likely to be associated with any of the cliques.
+
+```{r example1, message=FALSE, warning=FALSE}
+RC_b <- communities::make_ring_of_cliques(n_cliques = 5, clique_size = 6, variant = "RC_C")
+ 
+node_positions <- igraph::layout.fruchterman.reingold(RC_b)
+partition <- igraph::cluster_louvain(RC_b)
+plot(partition, RC_b, layout = node_positions)
+#explore the solution space
+sol_space <- communities::solutions_space_DM(RC_b, n_trials = 100, met = "LV")
+
+qc<- communities::quality_check(RC_b, sol_space)
+
+
+plots<-communities::plot_sol_space(sol_space, qc)
+plots$pl1
+plots$pl2
+plots$pl3
+plots$pl4
+        
+```
+```{r}
+
+communities::plot_solutions(RC_b, sol_space, add_node_labels = F, add_prob_labels = TRUE)
+ 
+
+
+```
+This function shows how the solution space evolved, trial after trial
+
+```{r}
+plot_sol_space_evolution(sol_space)
+```
+
+
+ 
+   
+ 
+   
+ 

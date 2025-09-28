@@ -2,70 +2,93 @@
 % Please edit documentation in R/detection.R
 \name{solutions_space_DM}
 \alias{solutions_space_DM}
-\title{Explore the Solution Space of Community Detection Algorithms
-#' Explore the Solution Space of Community Detection Algorithms}
+\title{Explore Community Detection Solution Space Using Dirichlet-Multinomial Framework}
 \usage{
 solutions_space_DM(
-  g,
+  graph,
   n_trials = 200,
-  met = "IM",
-  delta = 0.05,
-  confidence = 0.95,
-  gamma0 = 1,
-  seed = NULL,
+  method = "IM",
+  precision_threshold = 0.05,
+  confidence_level = 0.95,
+  prior_concentration = 1,
+  random_seed = NULL,
   verbose = TRUE
 )
 }
 \arguments{
-\item{g}{An \code{igraph} object. The graph whose community structure is to be analyzed.}
+\item{graph}{An \code{igraph} object representing the network to analyze.
+Must have at least 2 vertices. Vertex names will be added if missing.}
 
-\item{n_trials}{Integer. Maximum number of trials to run (default: 200).}
+\item{n_trials}{Integer. Maximum number of algorithm trials to execute (default: 200).}
 
-\item{met}{Character. Community detection method. One of: \code{"IM"} (Infomap), \code{"WT"} (Walktrap),
-\code{"LV"} (Louvain), \code{"LD"} (Leiden), \code{"LP"} (Label Propagation), \code{"EV"} (Leading Eigenvector),
-\code{"EB"} (Edge Betweenness). Default is \code{"IM"}.}
+\item{method}{Character. Community detection algorithm to use. One of:
+\itemize{
+\item{\code{"IM"}}{Infomap}
+\item{\code{"WT"}}{Walktrap}
+\item{\code{"LV"}}{Louvain}
+\item{\code{"LD"}}{Leiden}
+\item{\code{"LP"}}{Label Propagation}
+\item{\code{"EV"}}{Leading Eigenvector}
+\item{\code{"EB"}}{Edge Betweenness}
+}
+Default is \code{"IM"}.}
 
-\item{delta}{Numeric. Precision threshold: maximum allowed width of Beta credible intervals
-for solution probabilities. Default is \code{0.05}.}
+\item{precision_threshold}{Numeric. Maximum allowed width of Beta credible
+intervals for early stopping (default: 0.05). Smaller values require more precision.}
 
-\item{confidence}{Numeric. Confidence level for Beta credible intervals (default: 0.95).}
+\item{confidence_level}{Numeric. Confidence level for credible intervals (default: 0.95).
+Must be between 0 and 1.}
 
-\item{gamma0}{Numeric. Symmetric Dirichlet prior parameter (default: 1).}
+\item{prior_concentration}{Numeric. Symmetric Dirichlet prior concentration
+parameter (default: 1). Higher values express stronger prior beliefs.}
 
-\item{seed}{Optional integer. If set, uses this value to seed the random number generator.}
+\item{random_seed}{Optional integer. Random seed for reproducible results.}
 
-\item{verbose}{Logical. If \code{TRUE}, prints progress at each trial. Default is \code{TRUE}.}
+\item{verbose}{Logical. Whether to print progress information (default: TRUE).}
 }
 \value{
-A list with three components:
+A list containing:
 \describe{
-\item{\code{partitions}}{A matrix (\code{nv} × \code{ns}) of unique partitions found, one per column. Rows are nodes.}
-\item{\code{probabilities}}{A data frame summarizing posterior probabilities for each solution:
-\code{id}, \code{count}, \code{phat}, \code{plower}, \code{pupper}.}
-\item{\code{log}}{A list of convergence diagnostics and trial-by-trial counts, including:
-\code{stop_trial}, \code{stop_reason}, \code{counts_matrix}, \code{counts_long},
-and the width of credible intervals at each step.}
+\item{\code{partitions}}{Matrix (n_vertices × n_solutions) of unique community
+assignments found. Each column represents one solution.}
+\item{\code{probabilities}}{Data frame with posterior statistics for each solution:
+\code{id} (solution identifier), \code{count} (frequency), \code{phat} (posterior mean),
+\code{pmin}, \code{pmax} (credible interval bounds).}
+\item{\code{log}}{List of convergence diagnostics including \code{stop_trial},
+\code{stop_reason}, trial-by-trial counts, and probability evolution matrices.}
 }
 }
 \description{
-Repeatedly runs a community detection algorithm on a graph under randomized conditions
-(e.g., vertex permutation) to explore the diversity of partitions generated. Tracks
-unique solutions, models posterior probabilities via a Dirichlet–Multinomial framework,
-and applies a precision stopping rule based on Beta credible intervals.
+Systematically explores the solution space of community detection algorithms by
+running multiple trials under randomized conditions (vertex permutation) and
+modeling solution probabilities using a Dirichlet-Multinomial framework with
+Beta credible intervals for convergence assessment.
 }
 \details{
-\itemize{
-\item Uses name-based remapping to align partition membership vectors to the original graph order.
-\item Posterior inference is based on a symmetric Dirichlet prior and marginal Beta distributions.
-\item Stops early if the width of all marginal CIs falls below \code{delta}.
-}
+The algorithm uses vertex permutation to explore different algorithm trajectories,
+ensuring solutions are mapped back to the original vertex ordering using vertex names.
+Posterior inference assumes a symmetric Dirichlet prior over solution probabilities,
+with early stopping when all marginal credible interval widths fall below the
+precision threshold.
 }
 \examples{
 \dontrun{
 library(igraph)
-g <- make_ring(10)
-result <- solutions_space_DM(g, n_trials = 100, met = "IM", seed = 42)
+
+# Simple example with ring network
+ring_graph <- make_ring(20)
+result <- solutions_space_DM(ring_graph, n_trials = 50, method = "IM")
 print(result$probabilities)
+
+# More complex example with multiple communities
+complex_graph <- make_ring_of_cliques(n_cliques = 4, clique_size = 5)
+result <- solutions_space_DM(
+  graph = complex_graph,
+  n_trials = 100,
+  precision_threshold = 0.02,
+  random_seed = 42
+)
 }
+
 
 }

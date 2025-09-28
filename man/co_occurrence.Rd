@@ -2,36 +2,34 @@
 % Please edit documentation in R/detection.R
 \name{co_occurrence}
 \alias{co_occurrence}
-\title{Calculate Normalized Co-occurrence Matrix}
+\title{Calculate Co-occurrence Matrix from Solution Space}
 \usage{
-co_occurrence(ssp)
+co_occurrence(solution_space_result)
 }
 \arguments{
-\item{ssp}{A list containing the solution space, including community membership
-matrix \code{M} and associated data. The list should have at least the following elements (any further elements are ignored):
-\itemize{
-\item \code{M}: A matrix where each column represents a solution (trial), and
-each row corresponds to a node. The matrix contains integers representing
-community assignments.
-\item \code{data}: A data frame where rows correspond to the same trials as the
-columns of \code{M}. It should include a \code{valid} logical vector indicating
-whether a trial is valid, and a \code{median} column representing the weight
-for each solution.
-}}
+\item{solution_space_result}{A list from \code{solutions_space_DM()} containing
+\code{partitions} (matrix of community assignments) and \code{probabilities}
+(data frame with solution weights).}
 }
 \value{
-A symmetric matrix \code{D} where each entry represents the weighted co-occurrence count of node pairs across all trials. The matrix shows how often nodes were grouped together in the same community, scaled by the weights in \code{alpha}.
+A symmetric n_vertices × n_vertices matrix with entries in \link{0, 1}
+and unit diagonal, showing co-occurrence probabilities.
 }
 \description{
-The \code{co_occurrence} function computes a normalized co-occurrence matrix based on the
-solution space provided by the input object \code{ssp}.
-The output matrix indicates the extent to which pairs of nodes appear together in the same community
-across different trials, with weights normalized by the median values of the solutions.
+Computes a weighted co-occurrence matrix indicating how often pairs of nodes
+appear together in the same community across different solutions, weighted
+by solution probabilities.
 }
 \details{
-The function uses the results of multiple community detection trials stored in \code{M}. For each trial, nodes that belong to the same community are identified, and their co-occurrence count is incremented by the corresponding value from \code{alpha}. The co-occurrence matrix is symmetric, reflecting the fact that if node A co-occurs with node B, then node B also co-occurs with node A.
+The co-occurrence matrix D\link{u,v} represents the probability that nodes u and v
+are assigned to the same community, weighted by the posterior probabilities
+of each solution. The diagonal is always 1 (each node co-occurs with itself).
 }
 \examples{
-D <- co_occurrence(ssp)
+\dontrun{
+graph <- make_ring_of_cliques(4, 5)
+solution_space_result <- solutions_space_DM(graph, n_trials = 50)
+co_occurrence_matrix <- co_occurrence(solution_space_result)
+}
 
 }
