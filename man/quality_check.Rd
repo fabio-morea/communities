@@ -4,7 +4,7 @@
 \alias{quality_check}
 \title{Perform Quality Checks on a Set of Community Detection Solutions}
 \usage{
-quality_check(g, sol_space)
+quality_check(g, ssp, mu_max = 0.5)
 }
 \arguments{
 \item{g}{An iGraph object representing the network to be analyzed.}
@@ -14,14 +14,13 @@ produced by the 'solution_space()' function that is composed of two elements:
 \itemize{
 \item \code{M}: A matrix of community labels for each solution.
 \item \code{data}: A dataframe where each row represents a solution, and columns will be added for
-computed metrics like \code{k}, \code{k_n}, \code{mod}, \code{mu}, \code{int_conn}, and \code{valid}.
+computed metrics like \code{k}, \code{mod}, \code{mu}, \code{int_conn}, and \code{valid}.
 }}
 }
 \value{
 The \code{sol_space} object with additional columns in \code{data}:
 \itemize{
 \item \code{k}: The number of unique communities in each solution.
-\item \code{k_n}: The number of communities normalized by the total number of nodes.
 \item \code{mod}: The modularity score for each solution.
 \item \code{mu}: The empirical mixing parameter for each solution.
 \item \code{int_conn}: The number of connected components within each community.
@@ -45,7 +44,6 @@ This function assesses the quality of each community detection solution in the s
 \itemize{
 \item \code{mu > 0.5}: If the mixing parameter exceeds 0.5, the solution is marked as invalid.
 \item \code{k == 1}: If there is only one community, the solution is marked as invalid.
-\item \code{k_n == 1}: If the number of communities is equal to the total number of nodes, the solution is marked as invalid.
 \item \code{int_conn > 1}: If any community has more than one connected component, the solution is marked as invalid.
 }
 }
