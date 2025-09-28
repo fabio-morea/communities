@@ -246,25 +246,7 @@ When multiple solutions exist, consensus methods aggregate information:
 - **Biological networks**: Find reliable functional modules while handling ambiguous node assignments  
 - **Infrastructure networks**: Detect communities robust to data collection artifacts and processing variations
 
-## 🤝 **Contributing**
-
-We welcome contributions! Please see our [contribution guidelines](CONTRIBUTING.md) for details.
-
-### **Development Setup**
-```r
-# Clone repository
-git clone https://github.com/fabio-morea/communities.git
-cd communities
-
-# Install development dependencies
-devtools::install_dev_deps()
-
-# Run tests
-devtools::test()
-
-# Check package
-devtools::check()
-```
+ 
 
 ### **Reporting Issues**
 Please report bugs and feature requests through [GitHub Issues](https://github.com/fabio-morea/communities/issues). Include:
@@ -304,9 +286,8 @@ This package builds upon the excellent work of:
 - The **aricode** for partition similarity metrics  
 - Community detection algorithm developers whose methods we implement
 
-**Author**: Fabio Morea (fabio.morea@areasciencepark.it)  
-**Institution**: PhD in Applied Data Science and Artificial Intelligence
-**Supervisor**: Prof. Domenico De Stefano, University of Trieste  
+**Author**: Fabio Morea, Area Science Park, Trieste, Italy - fabio.morea@areasciencepark.it
+this code was developed within the framework of my PhD in Applied Data Science and Artificial Intelligence, under the supervizion of Prof. Domenico De Stefano, University of Trieste, Italy.
 
 ---
 
