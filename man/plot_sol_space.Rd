@@ -4,7 +4,7 @@
 \alias{plot_sol_space}
 \title{Plot the Solution Space of Community Detection Results}
 \usage{
-plot_sol_space(sol_space)
+plot_sol_space(sol_space, qc)
 }
 \arguments{
 \item{sol_space}{A dataframe produced by the \code{explore_solution_space} function. The dataframe should contain
@@ -14,7 +14,7 @@ for each solution.}
 \value{
 A list of up to 4 plots:
 \itemize{
-\item \code{pl1}: A line plot showing the cumulative sum and median of solutions, with error bars indicating variability.
+\item \code{pl1}: A plot showing the median probability of solutions, with error bars indicating credible intervals.
 \item \code{pl2}: A visualization of the solution space, showing the range of valid and non-valid solutions.
 \item \code{pl3}: A scatter plot showing the distribution of community sizes for each solution.
 \item \code{pl4}: A plot representing the similarity between the solutions (empty if solution space contains only one solution).

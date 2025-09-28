@@ -29,13 +29,6 @@ The output matrix indicates the extent to which pairs of nodes appear together i
 across different trials, with weights normalized by the median values of the solutions.
 }
 \details{
-The function filters out invalid trials based on the \code{valid} column in the
-\code{ssp$data} dataframe. It then computes the co-occurrence matrix \code{D} by iterating
-through each trial and identifying pairs of nodes that belong to the same
-community. The contribution of each trial to the co-occurrence matrix is
-weighted by the \code{median} values in the \code{ssp$data} dataframe, normalized by the
-total sum of medians.
-
 The function uses the results of multiple community detection trials stored in \code{M}. For each trial, nodes that belong to the same community are identified, and their co-occurrence count is incremented by the corresponding value from \code{alpha}. The co-occurrence matrix is symmetric, reflecting the fact that if node A co-occurs with node B, then node B also co-occurs with node A.
 }
 \examples{
