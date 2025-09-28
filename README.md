@@ -286,9 +286,8 @@ This package builds upon the excellent work of:
 - The **aricode** for partition similarity metrics  
 - Community detection algorithm developers whose methods we implement
 
-**Author**: Fabio Morea (fabio.morea@areasciencepark.it)  
-**Institution**: PhD in Applied Data Science and Artificial Intelligence
-**Supervisor**: Prof. Domenico De Stefano, University of Trieste  
+**Author**: Fabio Morea, Area Science Park, Trieste, Italy - fabio.morea@areasciencepark.it
+this code was developed within the framework of my PhD in Applied Data Science and Artificial Intelligence, under the supervizion of Prof. Domenico De Stefano, University of Trieste, Italy.
 
 ---
 
