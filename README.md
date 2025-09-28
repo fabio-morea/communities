@@ -1,9 +1,9 @@
 # communities
 
 <!-- badges: start -->
-[![R-CMD-check](https://github.com/fabio-morea/communities/workflows/R-CMD-check/badge.svg)](https://github.com/fabio-morea/communities/actions)
+[![License: CC BY 4.0](https://img.shields.io/badge/License-CC_BY_4.0-lightgrey.svg)](https://creativecommons.org/licenses/by/4.0/)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.13594209.svg)](https://doi.org/10.5281/zenodo.13594209)
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 <!-- badges: end -->
 
 > **A comprehensive framework for solution space exploration in community detection**
