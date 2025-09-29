@@ -364,7 +364,7 @@ network analysis, see:
 }
 ```
 
-## 🙏 **Acknowledgments**
+## **Acknowledgments**
 
 This package builds upon the excellent work of: - The **igraph** for
 foundational network analysis tools - The **aricode** for partition
