@@ -14,13 +14,8 @@ The `communities` package addresses critical reproducibility issues in
 network community detection by providing systematic tools to explore the
 complete solution space of detection algorithms. Built on `igraph`, it
 implements a Bayesian framework for assessing algorithm stability,
-managing input ordering bias, and identifying outlier nodes through
-repeated trials with controlled randomization.
-
-For detailed examples and usage, see the vignettes: - [Introduction to
-communities](https://github.com/fabio-morea/communities/blob/main/vignette/getting-started.html) -
-[Exploring the Solution
-Space](https://github.com/fabio-morea/communities/blob/main/vignette/vignette-karate.html)
+managing input ordering bias, and identifying outliers through repeated
+trials.
 
 ## **Key Features**
 
@@ -66,14 +61,7 @@ Space](https://github.com/fabio-morea/communities/blob/main/vignette/vignette-ka
 
 ## **Installation**
 
-### Development Version (Recommended)
-
 ``` r
-# Install from GitHub using pak (recommended)
-install.packages("pak")
-pak::pak("fabio-morea/communities")
-
-# Alternative: using devtools
 install.packages("devtools")
 devtools::install_github("fabio-morea/communities")
 ```
@@ -174,7 +162,7 @@ plot_solutions(graph, solution_space,
 
 ## **Advanced Usage**
 
-### Custom Network Generation
+### generate “ring of cliques” networks for testing
 
 ``` r
 # Create different ring-of-cliques variants
@@ -323,7 +311,7 @@ If you use this package in your research, please cite:
 
 ``` bibtex
 @misc{communities2024,
-  title = {communities: A Comprehensive Framework for Solution Space 
+  title = {A Comprehensive Framework for Solution Space 
            Exploration in Community Detection},
   author = {Morea, Fabio and De Stefano, Domenico},
   year = {2024},
@@ -336,8 +324,7 @@ The theoretical framework underlying this package is described in:
 
 ``` bibtex
 @article{morea2024comprehensive,
-  title = {A Comprehensive Framework for Solution Space Exploration in 
-           Community Detection},
+  title = A Comprehensive Framework for Solution Space Exploration in Community Detection},
   author = {Morea, Fabio and De Stefano, Domenico},
   year = {2024},
   journal = {Under Review},
@@ -374,5 +361,5 @@ similarity metrics
 **Author**: Fabio Morea, Area Science Park, Trieste, Italy -
 <fabio.morea@areasciencepark.it> this code was developed within the
 framework of my PhD in Applied Data Science and Artificial Intelligence,
-under the supervizion of Prof. Domenico De Stefano, University of
+under the supervision of Prof. Domenico De Stefano, University of
 Trieste, Italy.
