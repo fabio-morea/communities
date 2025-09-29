@@ -1,220 +1,369 @@
 #' Calculate the Empirical Mixing Parameter (Mu)
 #'
-#' The `empirical_mu` function calculates the mixing parameter "mu" for a given network, which represents the proportion of edges that exist between different communities. This parameter is often used in community detection algorithms to quantify how mixed or modular a network is.
+#' Calculates the mixing parameter μ (mu) for a given network, which represents 
+#' the proportion of edges that connect nodes from different communities. This 
+#' parameter quantifies how mixed or modular a network is.
 #'
-#' @param g An iGraph object representing the network. The edges of the graph should ideally be weighted, but if not, all edge weights are set to 1.0 by default.
-#' @param community_labels A vector of community labels, ordered according to the vertices in `g`. These labels define the community membership of each node in the graph.
+#' @param graph An igraph object representing the network. Edge weights will be 
+#'   set to 1.0 if not present.
+#' @param community_labels A vector of community labels, ordered according to 
+#'   the vertices in \code{graph}. These labels define the community membership 
+#'   of each node.
 #'
-#' @return A numeric value representing the empirical mixing parameter (mu), which is the ratio of inter-community edges to the total number of edges.
+#' @return A numeric value in [0, 1] representing the empirical mixing parameter 
+#'   (μ), which is the ratio of inter-community edge weights to total edge weights.
+#'   Higher values indicate more mixing between communities.
 #'
-#' @details The function works by first ensuring that all edges have weights (defaulting to 1.0 if no weights are provided). It then calculates the number of edges that connect nodes from different communities (inter-community edges) and computes the proportion of such edges relative to the total number of edges in the graph.
+#' @details 
+#' The function ensures all edges have weights (defaulting to 1.0 if missing), 
+#' then calculates the proportion of edge weight that connects nodes from 
+#' different communities relative to the total edge weight in the graph.
 #'
 #' @examples
-#' # Create a simple graph and calculate the mixing parameter
-#' g <- make_ring_of_cliques(3, 5)
-#' community_labels <- V(g)$community
-#' mu <- empirical_mu(g, community_labels)
+#' \dontrun{
+#' library(igraph)
+#' graph <- make_ring_of_cliques(3, 5)
+#' community_labels <- V(graph)$gt_community
+#' mu <- empirical_mu(graph, community_labels)
 #' print(mu)
+#' }
 #'
 #' @export
-empirical_mu <- function(g, community_labels) {
-    # Calculates the value of mixing parameter "mu"
-    E(g)$weight <- 1.0
-    V(g)$community <- community_labels
-    gdf<-as_long_data_frame(g)
-    gdf$inter_comm <- (gdf$from_community != gdf$to_community)
-    inter_community_links <- sum(gdf$weight[ gdf$inter_comm == TRUE])
-    mu = sum(inter_community_links) / sum(gdf$weight)
-    return(mu)
+empirical_mu <- function(graph, community_labels) {
+    
+    # Ensure all edges have weights (default to 1.0)
+    igraph::E(graph)$weight <- 1.0
+    
+    # Assign community labels to vertices
+    igraph::V(graph)$community <- community_labels
+    
+    # Convert graph to long-format edge data frame
+    edge_data <- igraph::as_long_data_frame(graph)
+    
+    # Identify inter-community edges
+    edge_data$is_inter_community <- (edge_data$from_community != edge_data$to_community)
+    
+    # Calculate total weight of inter-community edges
+    inter_community_weight <- sum(edge_data$weight[edge_data$is_inter_community == TRUE])
+    
+    # Calculate mixing parameter (ratio of inter-community to total weight)
+    mixing_parameter <- inter_community_weight / sum(edge_data$weight)
+    
+    return(mixing_parameter)
 }
 
 #' Calculate the Number of Connected Components within Each Community
 #'
-#' The `internally_connected` function calculates how many connected components exist within each community of a given network. For each community, it extracts the subgraph containing only the nodes from that community and computes the number of connected components within that subgraph.
+#' Calculates how many connected components exist within each community of a 
+#' given network. For each community, it extracts the induced subgraph and 
+#' computes the number of connected components.
 #'
-#' @param g An iGraph object representing the network to be analyzed.
-#' @param community_labels A vector of community labels, where each label corresponds to a node in the graph `g`. The length of this vector must match the number of vertices in the graph.
+#' @param graph An igraph object representing the network to be analyzed.
+#' @param community_labels A vector of community labels, where each label 
+#'   corresponds to a node in the graph. The length of this vector must match 
+#'   the number of vertices in the graph.
 #'
-#' @return A numeric vector where each element corresponds to the number of connected components in one of the communities. The order of the communities matches the order of the unique community labels in the input.
+#' @return A numeric vector where each element corresponds to the number of 
+#'   connected components in one of the communities. The order matches the 
+#'   order of unique community labels in the input.
 #'
-#' @details The function first checks that the length of the `community_labels` vector matches the number of nodes in the graph. It then assigns the community labels to the vertices in the graph. For each community, the function extracts the subgraph corresponding to that community and counts the number of connected components in that subgraph. This can be useful for analyzing the internal structure of communities within a network.
+#' @details 
+#' The function assigns community labels to vertices, then for each community, 
+#' extracts the induced subgraph and counts connected components. A community 
+#' is internally connected if it has exactly one connected component.
 #'
 #' @examples
-#' # Create a simple graph and assign community labels
-#' g <- make_ring_of_cliques(4, 5)
-#' community_labels <- V(g)$community
-#' internal_components <- internally_connected(g, community_labels)
+#' \dontrun{
+#' library(igraph)
+#' graph <- make_ring_of_cliques(4, 5)
+#' community_labels <- V(graph)$gt_community
+#' internal_components <- internally_connected(graph, community_labels)
 #' print(internal_components)
+#' }
+#'
 #' @export
-internally_connected <- function(g, community_labels) {
-    stopifnot(length(community_labels)==vcount(g))
-    V(g)$community<-community_labels
-    communities <- unique(V(g)$community)
-    int_conn<- c()
-    for (community in communities) {
-        subgraph <- induced_subgraph(g, V(g)$community == community)
-        int_conn <- c(int_conn, components(subgraph)$no) 
+internally_connected <- function(graph, community_labels) {
+    
+    # Validate input lengths match
+    stopifnot(length(community_labels) == igraph::vcount(graph))
+    
+    # Assign community labels to vertices
+    igraph::V(graph)$community <- community_labels
+    
+    # Get unique community identifiers
+    unique_communities <- unique(igraph::V(graph)$community)
+    
+    # Initialize result vector
+    n_components_per_community <- c()
+    
+    # Process each community
+    for (community_id in unique_communities) {
+        
+        # Extract induced subgraph for this community
+        community_subgraph <- igraph::induced_subgraph(
+            graph, 
+            igraph::V(graph)$community == community_id
+        )
+        
+        # Count connected components in this community
+        n_components <- igraph::components(community_subgraph)$no
+        
+        # Append to results
+        n_components_per_community <- c(n_components_per_community, n_components)
     }
-    return(int_conn)  
+    
+    return(n_components_per_community)
 }
 
-#' Perform Quality Checks on a Set of Community Detection Solutions
+#' Perform Quality Checks on Community Detection Solutions
 #'
-#' The `quality_check` function evaluates the quality of a set of community detection solutions 
-#' stored in the `sol_space` object. The function computes various metrics, including 
-#' the number of communities, modularity, mixing parameter (mu), and internal connectivity. 
-#' It also flags solutions as valid or invalid based on certain thresholds.
+#' Evaluates the quality of community detection solutions by computing multiple 
+#' metrics including number of communities, modularity, mixing parameter, and 
+#' internal connectivity. Flags solutions as valid or invalid based on quality 
+#' criteria.
 #'
-#' @param g An iGraph object representing the network to be analyzed.
-#' @param sol_space A list-link object containing the solution space for community detection, 
-#' produced by the 'solution_space()' function that is composed of two elements:
-#'   - `M`: A matrix of community labels for each solution.
-#'   - `data`: A dataframe where each row represents a solution, and columns will be added for 
-#'     computed metrics like `k`, `mod`, `mu`, `int_conn`, and `valid`.
+#' @param graph An igraph object representing the network to be analyzed.
+#' @param solution_space_result A list object from \code{solutions_space_DM()} 
+#'   containing \code{partitions} (matrix of community labels for each solution).
+#' @param mu_max Numeric. Maximum acceptable mixing parameter value (default: 0.5). 
+#'   Solutions with μ > mu_max are flagged as invalid.
 #'
-#' @return The `sol_space` object with additional columns in `data`:
-#'   - `k`: The number of unique communities in each solution.
-#'   - `mod`: The modularity score for each solution.
-#'   - `mu`: The empirical mixing parameter for each solution.
-#'   - `int_conn`: The number of connected components within each community.
-#'   - `valid`: A boolean value indicating whether the solution is valid (`TRUE`) or invalid (`FALSE`), based on a set of criteria.
+#' @return A tibble with one row per solution containing:
+#' \describe{
+#'   \item{\code{solution_id}}{Solution identifier (1 to n_solutions)}
+#'   \item{\code{k}}{Number of unique communities}
+#'   \item{\code{modularity}}{Newman's modularity score}
+#'   \item{\code{mu}}{Empirical mixing parameter}
+#'   \item{\code{int_conn}}{Whether all communities are internally connected}
+#'   \item{\code{valid}}{Overall validity flag (TRUE/FALSE)}
+#'   \item{\code{reason}}{Explanation when valid = FALSE}
+#' }
 #'
-#' @details This function assesses the quality of each community detection solution in the solution space by calculating:
-#'   - The number of unique communities (`k`).
-#'   - The modularity score (`mod`), which measures the strength of community structure.
-#'   - The mixing parameter (`mu`), indicating the proportion of inter-community edges.
-#'   - A flag to highlight Whether communities are internally connected (`int_conn`).
-#'   - A flag to signal the validity of each solution. A solution is not valid if any of the following condition applies: 
-#'     - `mu > 0.5`: If the mixing parameter exceeds 0.5, the solution is marked as invalid.
-#'     - `k == 1`: If there is only one community, the solution is marked as invalid.
-#'     - `int_conn > 1`: If any community has more than one connected component, the solution is marked as invalid.
+#' @details 
+#' Quality assessment includes:
+#' \itemize{
+#'   \item{Number of communities (k)}
+#'   \item{Modularity score (higher is better)}
+#'   \item{Mixing parameter μ (should be ≤ mu_max)}
+#'   \item{Internal connectivity (all communities should be connected)}
+#' }
+#'
+#' Validity criteria (all must be satisfied):
+#' \itemize{
+#'   \item{μ ≤ mu_max}
+#'   \item{k > 1 (more than one community)}
+#'   \item{All communities are internally connected}
+#'   \item{No missing metric values}
+#' }
 #'
 #' @examples
-#' # Assuming 'g' is a graph and 'sol_space' contains community detection results
-#' sol_space_checked <- quality_check(g, sol_space)
-#' print(sol_space_checked$data)
+#' \dontrun{
+#' library(igraph)
+#' graph <- make_ring_of_cliques(4, 5)
+#' solution_space_result <- solutions_space_DM(graph, n_trials = 50)
+#' quality_results <- quality_check(graph, solution_space_result)
+#' print(quality_results)
+#' }
 #'
 #' @export
-quality_check <- function(g, ssp, mu_max = 0.5) {
-    stopifnot(inherits(g, "igraph"))
-    if (is.null(ssp$partitions)) stop("ssp$partitions is missing.")
+quality_check <- function(graph, solution_space_result, mu_max = 0.5) {
     
-    # Partitions: accept either a vector (single solution) or a matrix (multiple solutions)
-    M <- ssp$partitions
-    if (is.null(ncol(M))) M <- matrix(M, ncol = 1)
+    # ---- Input validation ----
+    stopifnot(inherits(graph, "igraph"))
     
-    n_solutions <- ncol(M)
-    n_nodes     <- igraph::vcount(g)
-    
-    # Preallocate result vectors
-    k         <- numeric(n_solutions)
-    mod       <- numeric(n_solutions)
-    mu        <- numeric(n_solutions)
-    int_conn  <- logical(n_solutions)
-    valid     <- rep(TRUE, n_solutions)
-    reasons   <- character(n_solutions)
-    
-    # Helper to append reasons for invalidity
-    add_reason <- function(idx, txt) {
-        if (is.na(reasons[idx]) || reasons[idx] == "") reasons[idx] <<- txt
-        else reasons[idx] <<- paste(reasons[idx], txt, sep = " | ")
+    if (is.null(solution_space_result$partitions)) {
+        stop("solution_space_result$partitions is missing", call. = FALSE)
     }
     
-    for (i in seq_len(n_solutions)) {
-        labels_raw <- M[, i]
+    # ---- Extract and standardize partition matrix ----
+    partition_matrix <- solution_space_result$partitions
+    
+    # Handle single solution (vector) by converting to matrix
+    if (is.null(ncol(partition_matrix))) {
+        partition_matrix <- matrix(partition_matrix, ncol = 1)
+    }
+    
+    n_solutions <- ncol(partition_matrix)
+    n_vertices <- igraph::vcount(graph)
+    
+    # ---- Initialize result vectors ----
+    n_communities <- numeric(n_solutions)
+    modularity_scores <- numeric(n_solutions)
+    mixing_parameters <- numeric(n_solutions)
+    internal_connectivity <- logical(n_solutions)
+    validity_flags <- rep(TRUE, n_solutions)
+    invalidity_reasons <- character(n_solutions)
+    
+    # ---- Helper function to append invalidity reasons ----
+    append_reason <- function(solution_idx, reason_text) {
+        if (is.na(invalidity_reasons[solution_idx]) || 
+            invalidity_reasons[solution_idx] == "") {
+            invalidity_reasons[solution_idx] <<- reason_text
+        } else {
+            invalidity_reasons[solution_idx] <<- paste(
+                invalidity_reasons[solution_idx], 
+                reason_text, 
+                sep = " | "
+            )
+        }
+    }
+    
+    # ---- Assess each solution ----
+    for (solution_idx in seq_len(n_solutions)) {
         
-        # Normalize community labels to 1..K (avoids issues with 0 or sparse labels)
-        labels <- as.integer(factor(labels_raw, levels = unique(labels_raw)))
+        # Extract raw community labels for this solution
+        raw_labels <- partition_matrix[, solution_idx]
+        
+        # Normalize labels to consecutive integers 1..k
+        # This avoids issues with sparse labeling (e.g., labels 0, 5, 7)
+        normalized_labels <- as.integer(
+            factor(raw_labels, levels = unique(raw_labels))
+        )
+        
+        # Compute quality metrics
         
         # 1) Number of communities
-        k[i] <- dplyr::n_distinct(labels)
+        n_communities[solution_idx] <- dplyr::n_distinct(normalized_labels)
         
-        # 2) Modularity
-        mod[i] <- igraph::modularity(g, labels)
+        # 2) Modularity score
+        modularity_scores[solution_idx] <- igraph::modularity(graph, normalized_labels)
         
-        # 3) Mixing parameter mu
-        mu[i] <- communities::empirical_mu(g, labels)
+        # 3) Mixing parameter μ
+        mixing_parameters[solution_idx] <- empirical_mu(graph, normalized_labels)
         
-        # 4) Internal connectivity: TRUE if all communities are internally connected
-        ic_vec <- communities::internally_connected(g, labels) # usually logical per community
-        int_conn[i] <- all(as.logical(ic_vec), na.rm = TRUE)
+        # 4) Internal connectivity check
+        connectivity_vector <- internally_connected(graph, normalized_labels)
+        internal_connectivity[solution_idx] <- all(
+            as.logical(connectivity_vector), 
+            na.rm = TRUE
+        )
         
-        # 5) Validity rules (all NA-safe)
-        if (!is.na(mu[i]) && mu[i] > mu_max) {
-            valid[i] <- FALSE; add_reason(i, sprintf("mu=%.3f > %.3f", mu[i], mu_max))
+        # Apply validity rules (with NA-safe checks)
+        
+        # Rule 1: Mixing parameter threshold
+        if (!is.na(mixing_parameters[solution_idx]) && 
+            mixing_parameters[solution_idx] > mu_max) {
+            validity_flags[solution_idx] <- FALSE
+            append_reason(
+                solution_idx, 
+                sprintf("mu=%.3f > %.3f", mixing_parameters[solution_idx], mu_max)
+            )
         }
-        if (!is.na(k[i]) && k[i] == 1) {
-            valid[i] <- FALSE; add_reason(i, "k=1 (trivial partition)")
-        }
-        if (!is.na(int_conn[i]) && !int_conn[i]) {
-            valid[i] <- FALSE; add_reason(i, "communities not internally connected")
+        
+        # Rule 2: Trivial partition (single community)
+        if (!is.na(n_communities[solution_idx]) && 
+            n_communities[solution_idx] == 1) {
+            validity_flags[solution_idx] <- FALSE
+            append_reason(solution_idx, "k=1 (trivial partition)")
         }
         
-        # If any metric is NA, mark solution as invalid and explain
-        if (any(is.na(c(k[i], mod[i], mu[i], int_conn[i])))) {
-            valid[i] <- FALSE
-            add_reason(i, "NA in one or more metrics")
+        # Rule 3: Internal connectivity requirement
+        if (!is.na(internal_connectivity[solution_idx]) && 
+            !internal_connectivity[solution_idx]) {
+            validity_flags[solution_idx] <- FALSE
+            append_reason(solution_idx, "communities not internally connected")
+        }
+        
+        # Rule 4: Missing metrics
+        if (any(is.na(c(n_communities[solution_idx], 
+                        modularity_scores[solution_idx], 
+                        mixing_parameters[solution_idx], 
+                        internal_connectivity[solution_idx])))) {
+            validity_flags[solution_idx] <- FALSE
+            append_reason(solution_idx, "NA in one or more metrics")
         }
     }
     
+    # ---- Return results as tibble ----
     tibble::tibble(
         solution_id = seq_len(n_solutions),
-        k           = k,
-        modularity  = mod,
-        mu          = mu,
-        int_conn    = int_conn,
-        valid       = valid,
-        reason      = reasons
+        k = n_communities,
+        modularity = modularity_scores,
+        mu = mixing_parameters,
+        int_conn = internal_connectivity,
+        valid = validity_flags,
+        reason = invalidity_reasons
     )
 }
 
-
-#' Similarity Matrix Between Community Partitions (NMI)
+#' Compute Similarity Matrix Between Community Partitions Using NMI
 #'
-#' Computes a pairwise similarity matrix between community-detection solutions
-#' using Normalized Mutual Information (NMI, square-root normalization).
+#' Computes a pairwise similarity matrix between community detection solutions
+#' using Normalized Mutual Information (NMI) with square-root normalization.
 #' The measure is invariant to community label permutations.
 #'
-#' @param partitions A tibble, data.frame, or matrix with \eqn{n} rows (nodes)
-#'   and \eqn{k} columns (solutions). Each column contains community labels for
+#' @param partitions A tibble, data.frame, or matrix with n rows (nodes)
+#'   and k columns (solutions). Each column contains community labels for
 #'   one partitioning of the same graph.
 #'
-#' @return A \eqn{k \times k} symmetric numeric matrix with values in \[0, 1\]:
-#'   \itemize{
-#'     \item \code{1} = identical partitions,
-#'     \item \code{0} = completely dissimilar partitions.
-#'   }
-#'   Row and column names correspond to the input column names (or
-#'   \code{"sol1"}, \code{"sol2"}, … if missing).
+#' @return A k × k symmetric numeric matrix with values in [0, 1]:
+#' \itemize{
+#'   \item{\code{1}}{Identical partitions}
+#'   \item{\code{0}}{Completely dissimilar partitions}
+#' }
+#' Row and column names correspond to the input column names (or
+#' \code{"sol1"}, \code{"sol2"}, ... if missing).
 #'
 #' @details
-#' This function calls \code{\link[aricode]{NMI}} from the \pkg{aricode} package
-#' with \code{variant = "sqrt"}, which ensures values are in \[0, 1\].
-#' The diagonal is always set to \code{1}.
- 
+#' This function uses \code{\link[aricode]{NMI}} from the aricode package
+#' with \code{variant = "sqrt"}, which ensures values are in [0, 1].
+#' The diagonal is always set to 1 (perfect self-similarity).
+#'
+#' @examples
+#' \dontrun{
+#' # Compare multiple partitions
+#' partition_matrix <- cbind(
+#'   sol1 = c(1, 1, 2, 2, 3, 3),
+#'   sol2 = c(1, 1, 1, 2, 2, 2),
+#'   sol3 = c(1, 2, 1, 2, 1, 2)
+#' )
+#' similarity <- similarity_matrix_nmi(partition_matrix)
+#' print(similarity)
+#' }
+#'
 #' @export
 similarity_matrix_nmi <- function(partitions) {
-    M <- as.matrix(partitions)
-    if (is.null(ncol(M))) M <- matrix(M, ncol = 1)
     
-    k <- ncol(M)
-    if (is.null(colnames(M))) colnames(M) <- paste0("sol", seq_len(k))
+    # Convert to matrix
+    partition_matrix <- as.matrix(partitions)
     
-    # initialize k x k matrix, diagonals = 1
-    S <- diag(1, k)
-    dimnames(S) <- list(colnames(M), colnames(M))
+    # Handle single partition (vector) case
+    if (is.null(ncol(partition_matrix))) {
+        partition_matrix <- matrix(partition_matrix, ncol = 1)
+    }
     
-    if (k > 1) {
-        for (i in 1:(k - 1)) {
-            for (j in (i + 1):k) {
-                sim <- aricode::NMI(M[, i], M[, j], variant = "sqrt")
-                S[i, j] <- sim   # upper triangle
-                S[j, i] <- sim   # lower triangle (mirror)
+    n_solutions <- ncol(partition_matrix)
+    
+    # Assign column names if missing
+    if (is.null(colnames(partition_matrix))) {
+        colnames(partition_matrix) <- paste0("sol", seq_len(n_solutions))
+    }
+    
+    # Initialize k × k similarity matrix with diagonal = 1
+    similarity_matrix <- diag(1, n_solutions)
+    dimnames(similarity_matrix) <- list(
+        colnames(partition_matrix), 
+        colnames(partition_matrix)
+    )
+    
+    # Compute pairwise similarities (upper triangle only, then mirror)
+    if (n_solutions > 1) {
+        for (i in 1:(n_solutions - 1)) {
+            for (j in (i + 1):n_solutions) {
+                
+                # Compute NMI between partitions i and j
+                nmi_value <- aricode::NMI(
+                    partition_matrix[, i], 
+                    partition_matrix[, j], 
+                    variant = "sqrt"
+                )
+                
+                # Fill upper and lower triangles (symmetric matrix)
+                similarity_matrix[i, j] <- nmi_value
+                similarity_matrix[j, i] <- nmi_value
             }
         }
     }
-    return(S)
+    
+    return(similarity_matrix)
 }
-
-
-     

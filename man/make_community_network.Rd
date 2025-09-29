@@ -7,35 +7,36 @@
 make_community_network(g)
 }
 \arguments{
-\item{g}{An iGraph object representing the original network to be analyzed. The network
-must include the following attributes:
+\item{g}{An igraph object representing the original network. Required attributes:
 \itemize{
-\item \code{V(g)$community}: An integer vector representing the community assignment for each node.
-\item \code{E(g)$w}: A numeric vector representing edge weights. If the network is unweighted,
-set \code{E(g)$w} to 1.0 for all edges.
+\item \code{V(g)$community}: Integer vector of community assignments
+\item \code{E(g)$weight}: Numeric vector of edge weights (use 1.0 for unweighted)
 }}
 }
 \value{
-An iGraph object representing the community network (\code{Gc}) with the following attributes:
+An igraph object representing the community network with attributes:
 \itemize{
-\item \code{V(Gc)$membership}: Community labels corresponding to the ones in the original network.
-\item \code{E(Gc)$w}: Edge weights representing the sum of edge weights between communities in the original network.
-\item \code{V(Gc)$size}: The number of nodes from the original network \code{G} that belong to each community in \code{Gc}.
+\item \code{V(gc)$id}: Community identifiers
+\item \code{V(gc)$size}: Number of nodes in each community
+\item \code{E(gc)$weight}: Aggregated edge weights between communities
 }
 }
 \description{
-This function constructs a new network (\code{Gc}), where each node represents a community
-within the original network (\code{G}). The resulting community network can be used to
-analyze the relationships between communities and explore their structure and interactions.
+Constructs a meta-network where each node represents a community from the
+original network. Edges between communities represent aggregated connections
+between nodes in those communities.
 }
 \details{
-This function aggregates the nodes and edges of the original network based on
-their community membership, creating a higher-level network where each node represents
-a community, and edges between nodes represent the aggregated connections between those communities.
+Aggregates nodes and edges by community membership to create a
+higher-level representation of network structure.
 }
 \examples{
-# Assuming 'g' is a pre-existing iGraph object with community and edge weight attributes
-community_network <- make_community_network(g)
+\dontrun{
+library(igraph)
+g <- make_ring(10)
+V(g)$community <- rep(1:2, each = 5)
+E(g)$weight <- 1.0
+gc <- make_community_network(g)
+}
 
-  
 }

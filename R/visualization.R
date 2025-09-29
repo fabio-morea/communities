@@ -1,390 +1,490 @@
 #' Build a Community Network from an iGraph Object
 #'
-#' This function constructs a new network (`Gc`), where each node represents a community
-#' within the original network (`G`). The resulting community network can be used to 
-#' analyze the relationships between communities and explore their structure and interactions.
+#' Constructs a meta-network where each node represents a community from the 
+#' original network. Edges between communities represent aggregated connections
+#' between nodes in those communities.
 #'
-#' @param g An iGraph object representing the original network to be analyzed. The network 
-#' must include the following attributes:
-#'   - `V(g)$community`: An integer vector representing the community assignment for each node.
-#'   - `E(g)$w`: A numeric vector representing edge weights. If the network is unweighted, 
-#' set `E(g)$w` to 1.0 for all edges.
+#' @param g An igraph object representing the original network. Required attributes:
+#'   \itemize{
+#'     \item \code{V(g)$community}: Integer vector of community assignments
+#'     \item \code{E(g)$weight}: Numeric vector of edge weights (use 1.0 for unweighted)
+#'   }
 #'
-#' @return An iGraph object representing the community network (`Gc`) with the following attributes:
-#'   - `V(Gc)$membership`: Community labels corresponding to the ones in the original network.
-#'   - `E(Gc)$w`: Edge weights representing the sum of edge weights between communities in the original network.
-#'   - `V(Gc)$size`: The number of nodes from the original network `G` that belong to each community in `Gc`.
+#' @return An igraph object representing the community network with attributes:
+#'   \itemize{
+#'     \item \code{V(gc)$id}: Community identifiers
+#'     \item \code{V(gc)$size}: Number of nodes in each community
+#'     \item \code{E(gc)$weight}: Aggregated edge weights between communities
+#'   }
 #'
-#' @details This function aggregates the nodes and edges of the original network based on 
-#' their community membership, creating a higher-level network where each node represents 
-#' a community, and edges between nodes represent the aggregated connections between those communities.
+#' @details Aggregates nodes and edges by community membership to create a 
+#'   higher-level representation of network structure.
 #'
 #' @examples
-#' # Assuming 'g' is a pre-existing iGraph object with community and edge weight attributes
-#' community_network <- make_community_network(g)
+#' \dontrun{
+#' library(igraph)
+#' g <- make_ring(10)
+#' V(g)$community <- rep(1:2, each = 5)
+#' E(g)$weight <- 1.0
+#' gc <- make_community_network(g)
+#' }
 #'
-#'   
 #' @export
-make_community_network <- function (g) {
+make_community_network <- function(g) {
+    # Aggregate edges by community membership
     edges_list <- g %>%
         as_long_data_frame() %>%
-        select(from_community, to_community, w) %>%
+        select(from_community, to_community, weight) %>%
         group_by(from_community, to_community) %>%
-        summarize(weight = sum(w))
+        summarize(weight = sum(weight), .groups = "drop")
     
+    # Create community-level graph
     gc <- graph_from_data_frame(edges_list, directed = FALSE)
-    V(gc)$id <- (1:vcount(gc))
+    V(gc)$id <- seq_len(vcount(gc))
     
+    # Calculate community sizes
     comms <- data.frame(label = V(gc)$name)
-    comms$size <- 0
-    for (i in 1:length(comms$label)) {
-        comms$size[i] <-
-            length(V(g)$community[V(g)$community == comms$label[i]])
-    }
+    comms$size <- vapply(comms$label, function(label) {
+        sum(V(g)$community == label)
+    }, FUN.VALUE = integer(1))
+    
     V(gc)$size <- comms$size
     
     return(gc)
 }
 
 
-
 #' Calculate Distances for Community-Based Network Layout
 #'
-#' The `layout_distance_comm` function computes distances between pairs of nodes in a network 
-#' to enhance visualization. The function clusters nodes belonging to the same community more 
-#' closely while pushing nodes from different communities further apart.
+#' Computes edge distances that pull nodes in the same community closer together
+#' while pushing nodes in different communities farther apart. Useful for layout
+#' algorithms that accept distance matrices.
 #'
-#' @param g An iGraph object representing the network to be analyzed. The network must have edge weights 
-#' stored in `E(g)$weight`. If the network is unweighted, set `E(g)$weight` to 1.0 for all edges.
-#' @param membership A numeric vector representing the community membership of each node, where each 
-#' entry corresponds to a node in the graph `g` (ordered as `V(g)`).
-#' @param eps A numeric value representing the minimum distance between nodes within the same community. 
-#' The default value is 0.02, and typical values range from 0.1 to 0.2.
+#' @param g An igraph object with edge weights stored in \code{E(g)$weight}.
+#'   For unweighted graphs, set all weights to 1.0.
+#' @param membership Numeric vector of community assignments, one per node,
+#'   ordered as \code{V(g)}.
+#' @param eps Numeric. Minimum distance between nodes in the same community.
+#'   Default is 0.02. Typical values: 0.1 to 0.2.
 #'
-#' @return A numeric vector of distances between pairs of nodes, ordered according to the edges in `g` (i.e., `E(g)`).
-#' Nodes in the same community will have smaller distances, while nodes in different communities will be spread further apart.
+#' @return Numeric vector of distances, one per edge in \code{E(g)}, ordered
+#'   according to the edge list.
 #'
-#' @details The function calculates distances based on edge weights and community membership. The parameter 
-#' `eps` sets the minimum distance between nodes within the same community, while the actual distance depends 
-#' on the edge weight between the nodes.
+#' @details Distance formula for edge \eqn{(u,v)}:
+#'   \deqn{d_{uv} = \epsilon + (1 - \epsilon) \cdot w_{uv} \cdot I(c_u = c_v)}
+#'   where \eqn{I(\cdot)} is the indicator function and \eqn{w_{uv}} is the
+#'   edge weight.
 #'
 #' @examples
-#' # Assuming 'g' is a pre-existing iGraph object and 'membership' is a vector of community memberships
+#' \dontrun{
+#' g <- make_ring(10)
+#' E(g)$weight <- runif(ecount(g))
+#' membership <- rep(1:2, each = 5)
 #' distances <- layout_distance_comm(g, membership, eps = 0.15)
+#' }
 #'
 #' @export
-layout_distance_comm <- function(g, membership, eps = .02) {
+layout_distance_comm <- function(g, membership, eps = 0.02) {
+    # Input validation
     if (!is.igraph(g)) {
-        stop("g is not an igraph graph.")
+        stop("g must be an igraph object.")
     }
     if (any(is.na(E(g)$weight))) {
         stop("Edge attribute 'weight' contains NA values.")
     }
     
-    df <- as_long_data_frame(g) %>% select(from, to, weight)
-    df$dist <- 0
-    for (i in 1:nrow(df)) {
-        same_comm = (membership[df$from[i]] == membership[df$to[i]])
-        df$dist[i] <- eps + (1 - eps) * df$weight[i] * same_comm
-    }
+    # Extract edge information
+    df <- as_long_data_frame(g) %>% 
+        select(from, to, weight)
+    
+    # Calculate distance for each edge
+    df$dist <- vapply(seq_len(nrow(df)), function(i) {
+        same_comm <- membership[df$from[i]] == membership[df$to[i]]
+        eps + (1 - eps) * df$weight[i] * same_comm
+    }, FUN.VALUE = numeric(1))
+    
     return(df$dist)
 }
 
 
-#' Plot the Solution Space of Community Detection Results
+#' Plot Solution Space Diagnostics
 #'
-#' The `plot_sol_space` function generates a series of plots to visually explore the solution space
-#' derived from community detection analysis. It provides insights into the distribution of solutions, 
-#' their internal consistency, and similarities between different partitions.
+#' Generates diagnostic plots for exploring community detection solution spaces.
+#' Visualizes posterior probabilities, credible intervals, community size 
+#' distributions, and inter-solution similarity.
 #'
-#' @param sol_space A dataframe produced by the `explore_solution_space` function. The dataframe should contain
-#' data on community partitions and relevant statistics such as cumulative sums, medians, and upper/lower bounds 
-#' for each solution.
+#' @param sol_space List output from \code{solutions_space_DM()}, containing:
+#'   \itemize{
+#'     \item \code{partitions}: Matrix of community assignments
+#'     \item \code{probabilities}: Data frame with posterior estimates
+#'   }
+#' @param qc Data frame from \code{quality_check()} with \code{valid} column
+#'   indicating solution validity.
 #'
-#' @return A list of up to 4 plots:
-#'   - `pl1`: A plot showing the median probability of solutions, with error bars indicating credible intervals.
-#'   - `pl2`: A visualization of the solution space, showing the range of valid and non-valid solutions.
-#'   - `pl3`: A scatter plot showing the distribution of community sizes for each solution.
-#'   - `pl4`: A plot representing the similarity between the solutions (empty if solution space contains only one solution).
+#' @return List containing up to 4 ggplot objects:
+#'   \itemize{
+#'     \item \code{pl1}: Posterior probabilities with credible intervals
+#'     \item \code{pl2}: Solution space visualization with validity markers
+#'     \item \code{pl3}: Community size distributions per solution
+#'     \item \code{pl4}: Pairwise solution similarity heatmap (NA if only 1 solution)
+#'   }
 #'
 #' @examples
-#' # Assuming 'sol_space' is a dataframe produced by 'explore_solution_space'
-#' plot_list <- plot_sol_space(sol_space)
+#' \dontrun{
+#' ssp <- solutions_space_DM(g, n_trials = 100)
+#' qc <- quality_check(g, ssp)
+#' plots <- plot_sol_space(ssp, qc)
+#' print(plots$pl1)
+#' }
 #'
 #' @export
 plot_sol_space <- function(sol_space, qc) {
- 
-   if(ncol(sol_space$partitions) == 0){
-        print("Solution space is epmty")
-        return(0)
+    # Check for empty solution space
+    if (ncol(sol_space$partitions) == 0) {
+        message("Solution space is empty.")
+        return(NULL)
     }
     
-    # 1 ######################### 
+    # Plot 1: Posterior probabilities with error bars
     pl1 <- sol_space$probabilities %>%
         ggplot(aes(x = id)) +
         geom_line(aes(y = phat), color = "black") +
         geom_point(aes(y = phat), size = 3) +
         geom_errorbar(aes(ymin = pmin, ymax = pmax), width = 0.2) +
-        geom_hline(yintercept = 0.5, color = "red") +
+        geom_hline(yintercept = 0.5, color = "red", linetype = "dashed") +
+        labs(
+            x = "Solution",
+            y = "Posterior probability",
+            title = "Solution probabilities with credible intervals"
+        ) +
         theme_light()
     
-    # 2 ######################### 
+    # Plot 2: Solution space with validity indicators
     pl2 <- sol_space$probabilities %>%
-        mutate(y = row_number())%>%
+        mutate(y = row_number()) %>%
         ggplot(aes(y = id)) +
         geom_rect(
-            fill = "gray",
-            aes(
-                xmin = pmin,
-                xmax = pmax,
-                ymin = y - 0.4,
-                ymax = y + 0.4
-            ) ,
-            alpha = 0.3
+            aes(xmin = pmin, xmax = pmax, ymin = y - 0.4, ymax = y + 0.4),
+            fill = "gray", alpha = 0.3
         ) +
-        geom_segment(aes(
-            x = pmin,
-            xend = pmax,
-            y = y,
-            yend = y
-        ), linewidth = 1) +
-        geom_point(aes(x = phat , y = y, 
-                       shape = if_else(qc$valid == TRUE, "v", "NV"), 
-                       color = if_else(qc$valid == TRUE, "v", "NV"), 
-                       size = 3)) +
-        scale_shape_manual(values = c("v" = 16, "NV" = 18)) +  # 16 = circle 4 = X
-        scale_color_manual(values = c("v" = "black", "NV" = "red")) +
-        geom_vline(xintercept = 0.5,
-                   color = "red",
-                   linetype = "dashed") +
-        geom_vline(xintercept = 0.0, color = "black") +
-        geom_vline(xintercept = 1.0, color = "black") +
-        
-        labs(x = "frequency of solutions",
-             y = "solution")   +
+        geom_segment(
+            aes(x = pmin, xend = pmax, y = y, yend = y),
+            linewidth = 1
+        ) +
+        geom_point(
+            aes(
+                x = phat, y = y,
+                shape = if_else(qc$valid, "Valid", "Invalid"),
+                color = if_else(qc$valid, "Valid", "Invalid")
+            ),
+            size = 3
+        ) +
+        scale_shape_manual(
+            name = "Status",
+            values = c("Valid" = 16, "Invalid" = 18)
+        ) +
+        scale_color_manual(
+            name = "Status",
+            values = c("Valid" = "black", "Invalid" = "red")
+        ) +
+        geom_vline(xintercept = 0.5, color = "red", linetype = "dashed") +
+        geom_vline(xintercept = c(0, 1), color = "black") +
+        labs(
+            x = "Frequency of solutions",
+            y = "Solution",
+            title = "Solution space with validity markers"
+        ) +
         theme_minimal()
     
-    # 3 ######################### 
-    nn <- nrow(sol_space$probabilities)
+    # Plot 3: Community size distributions
+    n_solutions <- nrow(sol_space$probabilities)
     
-    # Ensure partitions is a matrix with one column per solution
+    # Ensure partitions is a matrix
     M <- sol_space$partitions
     if (is.null(ncol(M))) M <- matrix(M, ncol = 1)
     
-    # Build data for plotting
-    df <- map_dfr(seq_len(nn), function(j) {
+    # Build data frame for community size plotting
+    df <- map_dfr(seq_len(n_solutions), function(j) {
         comm_labels <- if (ncol(M) == 1) M[, 1] else M[, j]
-         
         
-        community_size_dist <- table(comm_labels) |>
-            sort(decreasing = TRUE) |>
-            unname() |> as.integer()
+        community_size_dist <- table(comm_labels) %>%
+            sort(decreasing = TRUE) %>%
+            unname() %>%
+            as.integer()
         
         tibble(
-            cs  = as.integer(round(community_size_dist, 0)),
-            x   = seq_along(community_size_dist),   # index of community within solution
-            y   = j,                                # one horizontal row per solution
-            grp = if_else(cs == 1L, "single", "comm")
+            comm_size = as.integer(community_size_dist),
+            comm_index = seq_along(community_size_dist),
+            solution_id = j,
+            is_singleton = comm_size == 1L
         )
     })
     
-    pl3 <- ggplot(df, aes(x = x, y = y)) +
-        # hollow circles; size maps linearly to cs (diameter)
-        geom_point(aes(size = cs), shape = 1, color = "black", stroke = 0.8) +
+    pl3 <- ggplot(df, aes(x = comm_index, y = solution_id)) +
+        geom_point(aes(size = comm_size), shape = 1, color = "black", stroke = 0.8) +
         scale_size_continuous(
-            range  = c(min(df$cs), max(df$cs)),                 # visual min/max; linear mapping preserved
-            breaks = function(lims) {            # integer breaks without overcrowding
-                by <- max(1, floor((lims[2] - 1) / 5))  # ≈5 ticks
+            range = c(min(df$comm_size), max(df$comm_size)),
+            breaks = function(lims) {
+                by <- max(1, floor((lims[2] - 1) / 5))
                 seq(1, lims[2], by = by)
             },
             labels = scales::number_format(accuracy = 1),
-            name   = "Community size"
+            name = "Community size"
         ) +
-        ylim(0.5, nn + 0.5) +
-        theme_minimal() +
+        ylim(0.5, n_solutions + 0.5) +
         labs(
-            x = "community index",
-            y = "solution",
+            x = "Community index (sorted by size)",
+            y = "Solution",
             title = "Community size distribution per solution"
-        )
+        ) +
+        theme_minimal()
     
-    
-    #heatmap
-    if (ncol(sol_space$partitions)>=2) {
+    # Plot 4: Similarity heatmap (only if multiple solutions exist)
+    pl4 <- NA
+    if (ncol(sol_space$partitions) >= 2) {
+        # Calculate similarity matrix
+        simil <- similarity_matrix_nmi(sol_space$partitions)
         
-        # Convert similarity matrix to long format
+        # Convert to long format
         simil_long <- simil %>%
             as.data.frame() %>%
-            tibble::rownames_to_column("Partition1") %>%
-            pivot_longer(-Partition1, names_to = "Partition2", values_to = "similarity") %>%
+            tibble::rownames_to_column("partition_1") %>%
+            pivot_longer(
+                -partition_1,
+                names_to = "partition_2",
+                values_to = "similarity"
+            ) %>%
             filter(similarity >= 0)
         
-        # Ensure consistent ordering of factors
+        # Ensure consistent factor ordering
         all_parts <- colnames(simil)
         simil_long <- simil_long %>%
             mutate(
-                Partition1 = factor(Partition1, levels = all_parts),
-                Partition2 = factor(Partition2, levels = all_parts)
+                partition_1 = factor(partition_1, levels = all_parts),
+                partition_2 = factor(partition_2, levels = all_parts)
             )
         
-        
-        # Plot
-        pl4 <- ggplot(simil_long, aes(x = Partition2, y = Partition1, fill = similarity)) +
-            geom_tile(color = "grey70", size = 0.5) +  # add borders between squares
-            geom_text(aes(label = sprintf("%.2f", similarity)), size = 3, color = "black") +
+        # Create heatmap
+        pl4 <- ggplot(simil_long, aes(x = partition_2, y = partition_1, fill = similarity)) +
+            geom_tile(color = "grey70", linewidth = 0.5) +
+            geom_text(
+                aes(label = sprintf("%.2f", similarity)),
+                size = 3, color = "black"
+            ) +
             scale_fill_gradient(
                 low = "red", high = "green",
-                limits = c(0, 1), na.value = "white", guide = "colorbar"
+                limits = c(0, 1),
+                na.value = "white",
+                guide = "colorbar"
             ) +
-            labs(x = "Solutions", y = "Solutions", title = "Partition Similarity (NMI)") +
+            labs(
+                x = "Solution",
+                y = "Solution",
+                title = "Partition Similarity (NMI)"
+            ) +
             theme_minimal(base_size = 14) +
             theme(
-                axis.text.x  = element_text(angle = 90, hjust = 1, vjust = 0.5),
-                axis.text.y  = element_text(hjust = 1),
-                plot.title   = element_text(hjust = 0.5, face = "bold"),
+                axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+                axis.text.y = element_text(hjust = 1),
+                plot.title = element_text(hjust = 0.5, face = "bold"),
                 axis.title.x = element_text(margin = margin(t = 10)),
                 axis.title.y = element_text(margin = margin(r = 10)),
                 legend.position = "right",
-                legend.title    = element_blank(),
-                aspect.ratio    = 1
+                legend.title = element_blank(),
+                aspect.ratio = 1
             )
-        
-        pl4
-    
-    } else {pl4 = NA}
+    }
     
     return(list(pl1 = pl1, pl2 = pl2, pl3 = pl3, pl4 = pl4))
 }
 
 
-#' Plot Multiple Solutions from a Solution Space
+#' Plot Multiple Solutions from Solution Space
 #'
-#' The function plot_all_solutions plots all the the solutions from a given solution space on a graph using a grid layout. 
-#' Each plot highlights a different solution with communities highlighted in red. 
+#' Creates a grid of network visualizations showing different community detection
+#' solutions. Each panel displays the same network with communities highlighted
+#' according to one solution.
 #'
-#' @param g An `igraph` object representing the network graph.
-#' @param sol_space A list containing the solution space. It should include:
-#'   \describe{
-#'     \item{data}{A matrix with rows corresponding to different solutions.}
-#'     \item{M}{A matrix where each column corresponds to the membership of nodes for a given solution.}
+#' @param g An igraph object representing the network.
+#' @param ssp List output from \code{solutions_space_DM()}, containing:
+#'   \itemize{
+#'     \item \code{partitions}: Matrix of community assignments
+#'     \item \code{probabilities}: Data frame with posterior probabilities
 #'   }
-#' @param device A string specifying the output device. Possible values are "screen" (default) and "png".
-#' @param filename A string specifying the file name for saving the plot if `device = "png"`. Default is `NULL`.
-#' @param width Width of the PNG image in pixels. Default is 1600.
-#' @param height Height of the PNG image in pixels. Default is 1600.
-#' @param res Resolution of the PNG image in DPI. Default is 300.
-#' 
-#' @return NULL. This function is called for creating plots.
-#' 
+#' @param add_node_labels Logical. Display node names? Default: TRUE.
+#' @param add_prob_labels Logical. Display solution probabilities? Default: TRUE.
+#' @param add_title Logical. Display solution numbers as titles? Default: TRUE.
+#' @param device Character. Output device: "screen" or "png". Default: "screen".
+#' @param filename Character. File path if device = "png". Default: NULL.
+#' @param width Numeric. PNG width in pixels. Default: 1600.
+#' @param height Numeric. PNG height in pixels. Default: 1600.
+#' @param res Numeric. PNG resolution in DPI. Default: 300.
+#'
+#' @return NULL (called for side effects: plotting).
+#'
+#' @details Uses Fruchterman-Reingold layout with consistent node positions
+#'   across all panels. Communities are highlighted with semi-transparent
+#'   colored regions.
+#'
 #' @examples
-#' # Example usage (assume `g` is an igraph object and `sol_space` is defined):
-#' # plot_solutions(g, sol_space)
+#' \dontrun{
+#' g <- make_ring(10)
+#' ssp <- solutions_space_DM(g, n_trials = 50)
+#' plot_solutions(g, ssp)
+#' # Save to file:
+#' plot_solutions(g, ssp, device = "png", filename = "solutions.png")
+#' }
 #'
 #' @export
-
-
-plot_solutions <- function(g, ssp, 
+plot_solutions <- function(g, ssp,
                            add_node_labels = TRUE,
                            add_prob_labels = TRUE,
                            add_title = TRUE,
-                           device = "screen", 
-                           filename = NULL, 
-                           width = 1600, height = 1600, res = 300) {
+                           device = "screen",
+                           filename = NULL,
+                           width = 1600,
+                           height = 1600,
+                           res = 300) {
     
-    
-    # If device is PNG, open the PNG file
+    # Open PNG device if requested
     if (device == "png" && !is.null(filename)) {
-        png(filename, width = width, height = height, res = res)  
+        png(filename, width = width, height = height, res = res)
     }
-
-    ns <- ncol(ssp$partitions)
     
-    # Set up the plotting area
-    par(mfrow = c(ceiling(sqrt(ns)), ceiling(sqrt(ns))),  # Grid layout
-        mar = c(1.0, 0.1, 3.0, 0.1),  # margins: bottom, left, top, right
-        oma = c(0, 0, 0, 0))        # No outer margins
+    # Determine number of solutions
+    n_solutions <- ncol(ssp$partitions)
+    
+    # Set up grid layout
+    n_cols <- ceiling(sqrt(n_solutions))
+    n_rows <- ceiling(n_solutions / n_cols)
+    par(
+        mfrow = c(n_rows, n_cols),
+        mar = c(1.0, 0.1, 3.0, 0.1),
+        oma = c(0, 0, 0, 0)
+    )
+    
+    # Compute consistent layout across all solutions
+    node_positions <- igraph::layout.fruchterman.reingold(g)
+    posterior_probs <- round(ssp$probabilities$phat, 3)
     
     # Plot each solution
-    node_positions <- igraph::layout.fruchterman.reingold(g)
-    p_median = ssp$probabilities$phat %>% round(3)
-    
-    for (i in 1:ns) {
-        # Extract membership information
-        if (ns == 1){
-            membership_i <- ssp$partitions
+    for (i in seq_len(n_solutions)) {
+        # Extract membership for this solution
+        membership_i <- if (n_solutions == 1) {
+            ssp$partitions
         } else {
-            membership_i <- ssp$partitions[, i]  
+            ssp$partitions[, i]
         }
         
-        
-        
-        # Plot the graph highlighting the i-th solution  
-
-        plot(g, 
-             vertex.label = if(add_node_labels) {V(g)$name} else {NA},
-             layout = node_positions,
-             vertex.size = if(add_node_labels) {30} else {15},
-             vertex.color = if(add_node_labels) {"white"} else {"lightblue"},        
-             mark.groups = split(1:vcount(g), membership_i),          
-             mark.col = rgb(0.5, 0.5, 0.5, alpha = 0.1),   
-             mark.border = 'red',              
-             
+        # Create plot
+        plot(
+            g,
+            vertex.label = if (add_node_labels) V(g)$name else NA,
+            layout = node_positions,
+            vertex.size = if (add_node_labels) 30 else 15,
+            vertex.color = if (add_node_labels) "white" else "lightblue",
+            mark.groups = split(seq_len(vcount(g)), membership_i),
+            mark.col = rgb(0.5, 0.5, 0.5, alpha = 0.1),
+            mark.border = "red"
         )
-        # Add title if `add_title` is TRUE
+        
+        # Add title if requested
         if (add_title) {
             mtext(paste("Solution", i), side = 3, line = 2, cex = 0.8)
         }
         
-        # Add probability labels if `add_prob_labels` is TRUE
+        # Add probability label if requested
         if (add_prob_labels) {
-            mtext(paste("p = ", p_median[i]), side = 3, line = 1, cex = 0.6)
+            mtext(paste("p =", posterior_probs[i]), side = 3, line = 1, cex = 0.6)
         }
     }
     
-    # If PNG device was opened, close it
+    # Close PNG device if opened
     if (device == "png") {
         dev.off()
     }
     
-    # Reset to default plotting layout (if plotting to the screen)
+    # Reset plotting parameters
     par(mfrow = c(1, 1), mar = c(5, 4, 4, 2) + 0.1)
     
-    
+    invisible(NULL)
 }
 
+
+#' Plot Solution Space Evolution Over Trials
+#'
+#' Visualizes how posterior probabilities of different solutions evolve across
+#' trials. Shows convergence behavior and relative stability of solutions.
+#'
+#' @param ssp List output from \code{solutions_space_DM()}, must include
+#'   \code{ssp$log$prob_long} with trial-by-trial probability estimates.
+#' @param show_ci Logical. Display credible intervals as ribbons? Default: TRUE.
+#' @param smooth Logical. Add LOESS smoothing curves? Default: FALSE.
+#'
+#' @return A ggplot object showing probability evolution.
+#'
+#' @details Requires \code{solutions_space_DM()} to be run with full logging
+#'   enabled. Credible intervals show uncertainty in probability estimates.
+#'   Smoothing can help identify trends in noisy convergence patterns.
+#'
+#' @examples
+#' \dontrun{
+#' ssp <- solutions_space_DM(g, n_trials = 200)
+#' p <- plot_sol_space_evolution(ssp, show_ci = TRUE, smooth = TRUE)
+#' print(p)
+#' }
+#'
 #' @export
 plot_sol_space_evolution <- function(ssp, show_ci = TRUE, smooth = FALSE) {
-    if (is.null(ssp$log$prob_long))
-        stop("ssp$log$prob_long not found. Re-run with updated logging that includes phat/pmin/pmax by trial.")
+    # Validate input
+    if (is.null(ssp$log$prob_long)) {
+        stop("ssp$log$prob_long not found. Re-run solutions_space_DM() with full logging.")
+    }
     
     suppressPackageStartupMessages({
         library(ggplot2)
         library(dplyr)
     })
     
+    # Prepare data
     df <- ssp$log$prob_long %>%
         mutate(solution = factor(solution, levels = unique(solution)))
     
+    # Build plot
     p <- ggplot(df, aes(x = trial, y = phat, color = solution)) +
-        { if (show_ci) 
-            geom_ribbon(aes(ymin = pmin, ymax = pmax, fill = solution), alpha = 0.15, color = NA) 
-            else NULL } +
-        geom_line(size = 0.8,na.rm = TRUE) +
-        { if (smooth) geom_smooth(se = FALSE, size = 0.6, linetype = 3, method = "loess", span = 0.4) else NULL } +
-        scale_y_continuous(limits = c(0, 1), expand = expansion(mult = c(0, 0.02))) +
+        {
+            if (show_ci) {
+                geom_ribbon(
+                    aes(ymin = pmin, ymax = pmax, fill = solution),
+                    alpha = 0.15, color = NA
+                )
+            }
+        } +
+        geom_line(linewidth = 0.8, na.rm = TRUE) +
+        {
+            if (smooth) {
+                geom_smooth(
+                    se = FALSE, linewidth = 0.6, linetype = 3,
+                    method = "loess", span = 0.4
+                )
+            }
+        } +
+        scale_y_continuous(
+            limits = c(0, 1),
+            expand = expansion(mult = c(0, 0.02))
+        ) +
         labs(
             x = "Trial",
-            y = "Posterior probability (phat)",
+            y = "Posterior probability",
             color = "Solution",
-            fill  = "Solution",
+            fill = "Solution",
             title = "Evolution of solution probabilities by trial"
         ) +
         theme_minimal(base_size = 13) +
         theme(
-            plot.title   = element_text(face = "bold", hjust = 0.5),
+            plot.title = element_text(face = "bold", hjust = 0.5),
             legend.position = "right"
         )
     
     return(p)
 }
-

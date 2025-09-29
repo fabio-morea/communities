@@ -2,31 +2,44 @@
 % Please edit documentation in R/quality.R
 \name{similarity_matrix_nmi}
 \alias{similarity_matrix_nmi}
-\title{Similarity Matrix Between Community Partitions (NMI)}
+\title{Compute Similarity Matrix Between Community Partitions Using NMI}
 \usage{
 similarity_matrix_nmi(partitions)
 }
 \arguments{
-\item{partitions}{A tibble, data.frame, or matrix with \eqn{n} rows (nodes)
-and \eqn{k} columns (solutions). Each column contains community labels for
+\item{partitions}{A tibble, data.frame, or matrix with n rows (nodes)
+and k columns (solutions). Each column contains community labels for
 one partitioning of the same graph.}
 }
 \value{
-A \eqn{k \times k} symmetric numeric matrix with values in [0, 1]:
+A k × k symmetric numeric matrix with values in \link{0, 1}:
 \itemize{
-\item \code{1} = identical partitions,
-\item \code{0} = completely dissimilar partitions.
+\item{\code{1}}{Identical partitions}
+\item{\code{0}}{Completely dissimilar partitions}
 }
 Row and column names correspond to the input column names (or
-\code{"sol1"}, \code{"sol2"}, … if missing).
+\code{"sol1"}, \code{"sol2"}, ... if missing).
 }
 \description{
-Computes a pairwise similarity matrix between community-detection solutions
-using Normalized Mutual Information (NMI, square-root normalization).
+Computes a pairwise similarity matrix between community detection solutions
+using Normalized Mutual Information (NMI) with square-root normalization.
 The measure is invariant to community label permutations.
 }
 \details{
-This function calls \code{\link[aricode]{NMI}} from the \pkg{aricode} package
-with \code{variant = "sqrt"}, which ensures values are in [0, 1].
-The diagonal is always set to \code{1}.
+This function uses \code{\link[aricode]{NMI}} from the aricode package
+with \code{variant = "sqrt"}, which ensures values are in \link{0, 1}.
+The diagonal is always set to 1 (perfect self-similarity).
+}
+\examples{
+\dontrun{
+# Compare multiple partitions
+partition_matrix <- cbind(
+  sol1 = c(1, 1, 2, 2, 3, 3),
+  sol2 = c(1, 1, 1, 2, 2, 2),
+  sol3 = c(1, 2, 1, 2, 1, 2)
+)
+similarity <- similarity_matrix_nmi(partition_matrix)
+print(similarity)
+}
+
 }

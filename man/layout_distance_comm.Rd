@@ -7,31 +7,36 @@
 layout_distance_comm(g, membership, eps = 0.02)
 }
 \arguments{
-\item{g}{An iGraph object representing the network to be analyzed. The network must have edge weights
-stored in \code{E(g)$weight}. If the network is unweighted, set \code{E(g)$weight} to 1.0 for all edges.}
+\item{g}{An igraph object with edge weights stored in \code{E(g)$weight}.
+For unweighted graphs, set all weights to 1.0.}
 
-\item{membership}{A numeric vector representing the community membership of each node, where each
-entry corresponds to a node in the graph \code{g} (ordered as \code{V(g)}).}
+\item{membership}{Numeric vector of community assignments, one per node,
+ordered as \code{V(g)}.}
 
-\item{eps}{A numeric value representing the minimum distance between nodes within the same community.
-The default value is 0.02, and typical values range from 0.1 to 0.2.}
+\item{eps}{Numeric. Minimum distance between nodes in the same community.
+Default is 0.02. Typical values: 0.1 to 0.2.}
 }
 \value{
-A numeric vector of distances between pairs of nodes, ordered according to the edges in \code{g} (i.e., \code{E(g)}).
-Nodes in the same community will have smaller distances, while nodes in different communities will be spread further apart.
+Numeric vector of distances, one per edge in \code{E(g)}, ordered
+according to the edge list.
 }
 \description{
-The \code{layout_distance_comm} function computes distances between pairs of nodes in a network
-to enhance visualization. The function clusters nodes belonging to the same community more
-closely while pushing nodes from different communities further apart.
+Computes edge distances that pull nodes in the same community closer together
+while pushing nodes in different communities farther apart. Useful for layout
+algorithms that accept distance matrices.
 }
 \details{
-The function calculates distances based on edge weights and community membership. The parameter
-\code{eps} sets the minimum distance between nodes within the same community, while the actual distance depends
-on the edge weight between the nodes.
+Distance formula for edge \eqn{(u,v)}:
+\deqn{d_{uv} = \epsilon + (1 - \epsilon) \cdot w_{uv} \cdot I(c_u = c_v)}
+where \eqn{I(\cdot)} is the indicator function and \eqn{w_{uv}} is the
+edge weight.
 }
 \examples{
-# Assuming 'g' is a pre-existing iGraph object and 'membership' is a vector of community memberships
+\dontrun{
+g <- make_ring(10)
+E(g)$weight <- runif(ecount(g))
+membership <- rep(1:2, each = 5)
 distances <- layout_distance_comm(g, membership, eps = 0.15)
+}
 
 }

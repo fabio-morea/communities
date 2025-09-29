@@ -1,0 +1,426 @@
+---
+title: "Exploring Solution Spaces and Community Networks"
+author: "communities package"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Exploring Solution Spaces and Community Networks}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+## Introduction
+
+Community detection algorithms often produce different results when run multiple times due to randomization or heuristic choices. The `communities` package provides tools to:
+
+1. **Explore the solution space** - discover all distinct community structures
+2. **Quantify uncertainty** - measure how stable each solution is
+3. **Analyze meta-structure** - examine relationships between communities using `make_community_network()`
+
+This vignette demonstrates this workflow using Zachary's Karate Club network.
+
+## Load Required Libraries
+
+```{r libraries}
+library(igraph)
+library(communities)
+library(dplyr)
+library(ggplot2)
+```
+
+## Step 1: Load the Network
+
+We'll use the famous Zachary's Karate Club network, which shows social ties between members of a university karate club.
+
+```{r load_network}
+# Load Zachary's karate club network
+karate_graph <- make_graph("Zachary")
+
+# Add edge weights (required for community network analysis)
+E(karate_graph)$weight <- 1
+
+# Basic network information
+cat("Network Overview:\n")
+cat("Number of nodes:", vcount(karate_graph), "\n")
+cat("Number of edges:", ecount(karate_graph), "\n")
+cat("Network density:", round(edge_density(karate_graph), 3), "\n")
+```
+
+## Step 2: Initial Community Detection
+
+Let's first run a single community detection to see what we get:
+
+```{r initial_detection}
+# Run Louvain algorithm once
+initial_communities <- cluster_louvain(karate_graph)
+
+cat("\nInitial Detection Results:\n")
+cat("Number of communities:", max(membership(initial_communities)), "\n")
+cat("Modularity:", round(modularity(initial_communities), 3), "\n")
+cat("\nCommunity sizes:\n")
+print(table(membership(initial_communities)))
+```
+
+```{r plot_initial, fig.width=8, fig.height=6}
+# Visualize initial result
+set.seed(42)
+plot(karate_graph,
+     vertex.label = V(karate_graph)$name,
+     vertex.size = 10,
+     vertex.color = membership(initial_communities),
+     main = "Initial Community Detection (Single Run)",
+     layout = layout_with_fr(karate_graph))
+```
+
+**Question**: Is this the only valid community structure? Let's explore the solution space!
+
+## Step 3: Explore the Solution Space
+
+The key insight: running the algorithm multiple times may reveal different equally-valid solutions.
+
+```{r explore_solution_space}
+# Explore solution space with multiple trials
+karate_solution_space <- solutions_space_DM(
+  g = karate_graph,
+  n_trials = 200,
+  met = "LV",  # Louvain algorithm
+  precision_threshold = 0.05,  # Precision threshold
+  confidence = 0.95,
+  verbose = FALSE)
+
+# Solution space summary
+cat("\nSolution Space Exploration Results:\n")
+cat("Total trials:", karate_solution_space$log$stop_trial, "\n")
+cat("Stopping reason:", karate_solution_space$log$stop_reason, "\n")
+cat("Number of distinct solutions found:", ncol(karate_solution_space$partitions), "\n")
+cat("Solution space type:", solution_space_type(karate_solution_space), "\n")
+```
+
+## Step 4: Understand Multiple Solutions
+
+The exploration revealed multiple distinct solutions! Let's examine them:
+
+```{r show_solutions}
+# Display solution probabilities
+cat("\nPosterior Probabilities of Each Solution:\n")
+print(karate_solution_space$probabilities)
+
+cat("\nInterpretation:\n")
+cat("- Each solution has a posterior probability (phat)\n")
+cat("- Credible intervals (pmin, pmax) quantify uncertainty\n")
+cat("- Higher probability = more frequently discovered = potentially more stable\n")
+```
+
+### Visualize Solution Evolution
+
+See how solutions emerge and stabilize over trials:
+
+```{r plot_evolution, fig.width=10, fig.height=6}
+plot_sol_space_evolution(karate_solution_space, show_ci = TRUE, smooth = FALSE)
+```
+
+### Quality Check
+
+Are all solutions valid?
+
+```{r quality_check}
+# Check solution quality
+qc_results <- quality_check(karate_graph, karate_solution_space)
+
+cat("\nQuality Check Results:\n")
+print(qc_results)
+```
+
+### Visualize All Solutions
+
+```{r plot_all_solutions, fig.width=10, fig.height=8}
+# Plot all solutions side by side
+plot_solutions(karate_graph, karate_solution_space,
+               add_node_labels = FALSE,
+               add_prob_labels = TRUE,
+               add_title = TRUE)
+```
+
+## Step 5: Build Community Networks for Each Solution
+
+Now the key question: **How do communities relate to each other in each solution?**
+
+We'll use `make_community_network()` to create a meta-network for each solution, where:
+- Each **node** = a community
+- Each **edge** = connections between communities
+- **Node size** = community size
+- **Edge weight** = number of inter-community connections
+
+```{r build_community_networks}
+# Get number of solutions
+n_solutions <- ncol(karate_solution_space$partitions)
+
+# Store community networks
+community_networks <- list()
+
+cat("Building community networks for each solution...\n\n")
+
+# Build community network for each solution
+for (i in seq_len(n_solutions)) {
+  # Extract membership for this solution
+  membership_i <- karate_solution_space$partitions[, i]
+  
+  # Assign to graph vertices
+  V(karate_graph)$community <- membership_i
+  
+  # Build the meta-network
+  community_networks[[i]] <- make_community_network(karate_graph)
+  
+  # Summary for this solution
+  cat(sprintf("Solution %d (probability = %.3f):\n", 
+              i, karate_solution_space$probabilities$phat[i]))
+  cat(sprintf("  • Number of communities: %d\n", 
+              vcount(community_networks[[i]])))
+  cat(sprintf("  • Inter-community links: %d\n", 
+              ecount(community_networks[[i]])))
+  cat(sprintf("  • Community sizes: %s\n", 
+              paste(V(community_networks[[i]])$size, collapse = ", ")))
+  cat(sprintf("  • Largest community: %d members\n", 
+              max(V(community_networks[[i]])$size)))
+  cat(sprintf("  • Smallest community: %d members\n\n", 
+              min(V(community_networks[[i]])$size)))
+}
+
+```
+
+### Visualize Community Networks
+
+Each row shows two graphs side by side: the original network (left) and its community meta-network (right):
+
+```{r plot_community_networks, fig.width=14, fig.height=n_solutions * 4.5}
+ 
+# Color palette for communities
+comm_colors <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", 
+                 "#FF7F00", "#FFFF33", "#A65628", "#F781BF")
+
+# Compute consistent layout for original network
+set.seed(42)
+original_layout <- layout_with_fr(karate_graph)
+
+# Create separate figure for each solution
+for (i in seq_len(n_solutions)) {
+  # Set up 1x2 plotting area for this solution
+  par(mfrow = c(1, 2), mar = c(1, 0.5, 3, 0.5), oma = c(0, 0, 2, 0))
+  
+  # Get membership for this solution
+  membership_i <- karate_solution_space$partitions[, i]
+  
+  # Assign colors based on community membership
+  node_colors <- comm_colors[membership_i]
+  
+  # === LEFT: Original Network with Communities Highlighted ===
+  plot(karate_graph,
+       vertex.label = NA,
+       vertex.size = 8,
+       vertex.color = node_colors,
+       vertex.frame.color = "black",
+       edge.color = "gray70",
+       edge.width = 0.8,
+       layout = original_layout,
+       main = sprintf("Original Network\n%d communities", 
+                      max(membership_i)))
+  
+  # Add legend
+  legend("bottomleft",
+         legend = paste("C", seq_len(max(membership_i)), sep = ""),
+         col = comm_colors[seq_len(max(membership_i))],
+         pch = 19,
+         bty = "n",
+         cex = 0.8)
+  
+  # === RIGHT: Community Meta-Network ===
+  gc <- community_networks[[i]]
+  
+  # Assign colors to meta-network nodes
+  V(gc)$color <- comm_colors[as.numeric(V(gc)$name)]
+  
+  # Create layout for meta-network
+  if (vcount(gc) <= 2) {
+    layout_coords <- layout_in_circle(gc)
+  } else {
+    layout_coords <- layout_nicely(gc)
+  }
+  
+  # Plot meta-network
+  plot(gc,
+       vertex.label = paste0("C", V(gc)$name, "\nn=", V(gc)$size),
+       vertex.size = sqrt(V(gc)$size) * 12,
+       vertex.color = V(gc)$color,
+       vertex.frame.color = "black",
+       vertex.label.color = "black",
+       vertex.label.cex = 1.0,
+       vertex.label.family = "sans",
+       edge.width = E(gc)$weight / 2,
+       edge.color = "gray40",
+       edge.curved = 0.2,
+       edge.label = E(gc)$weight,
+       edge.label.cex = 0.8,
+       main = sprintf("Community Network\n%d communities, %d inter-links", 
+                      vcount(gc),
+                      ecount(gc)))
+  
+  # Add overall title
+  mtext(sprintf("Solution %d (probability = %.3f)", 
+                i, 
+                karate_solution_space$probabilities$phat[i]),
+        outer = TRUE, cex = 1.2, font = 2, line = 0.5)
+}
+
+# Reset plotting parameters
+par(mfrow = c(1, 1), mar = c(5, 4, 4, 2) + 0.1, oma = c(0, 0, 0, 0))
+```
+
+**Reading the plots:**
+- **Left panels**: Original karate club network with nodes colored by community
+- **Right panels**: Simplified meta-network where each node represents a community
+- **Node size** (right): Proportional to community size
+- **Edge labels** (right): Number of connections between communities
+
+## Step 6: Compare Community Network Structures
+
+How do the meta-networks differ across solutions?
+
+```{r compare_structures}
+# Create comparison table
+comparison_df <- data.frame(
+  solution = seq_len(n_solutions),
+  probability = round(karate_solution_space$probabilities$phat, 3),
+  n_communities = sapply(community_networks, vcount),
+  inter_links = sapply(community_networks, ecount),
+  avg_size = round(sapply(community_networks, function(gc) mean(V(gc)$size)), 1),
+  max_size = sapply(community_networks, function(gc) max(V(gc)$size)),
+  min_size = sapply(community_networks, function(gc) min(V(gc)$size)),
+  density = round(sapply(community_networks, edge_density), 3)
+)
+
+cat("\nCommunity Network Comparison:\n")
+print(comparison_df)
+
+cat("\nKey Insights:\n")
+cat("- Different solutions partition the network differently\n")
+cat("- Community network density shows how interconnected communities are\n")
+cat("- Higher density = more mixing between communities\n")
+cat("- Lower density = more separated communities\n")
+```
+
+### Analyze Inter-Community Connectivity
+
+```{r connectivity_analysis}
+# Extract connectivity patterns for each solution
+connectivity_stats <- lapply(seq_len(n_solutions), function(i) {
+  gc <- community_networks[[i]]
+  
+  if (ecount(gc) > 0) {
+    edges_df <- data.frame(
+      from = ends(gc, E(gc))[, 1],
+      to = ends(gc, E(gc))[, 2],
+      weight = E(gc)$weight
+    )
+    
+    data.frame(
+      solution = i,
+      from_comm = edges_df$from,
+      to_comm = edges_df$to,
+      weight = edges_df$weight,
+      probability = karate_solution_space$probabilities$phat[i]
+    )
+  } else {
+    NULL
+  }
+}) %>% 
+  bind_rows()
+
+cat("\nInter-Community Connection Details:\n")
+print(connectivity_stats)
+```
+
+```{r plot_connectivity, fig.width=10, fig.height=6}
+# Visualize connection strength distribution
+if (nrow(connectivity_stats) > 0 && n_solutions > 1) {
+  ggplot(connectivity_stats, aes(x = factor(solution), y = weight)) +
+    geom_boxplot(aes(fill = factor(solution)), alpha = 0.7) +
+    geom_jitter(width = 0.2, alpha = 0.6, size = 2) +
+    labs(
+      title = "Inter-Community Connection Strength by Solution",
+      subtitle = "Each point represents one inter-community edge",
+      x = "Solution",
+      y = "Edge Weight (Number of Connections)",
+      fill = "Solution"
+    ) +
+    theme_minimal(base_size = 12) +
+    theme(legend.position = "none")
+} else {
+  cat("\nInsufficient data for connectivity comparison plot.\n")
+}
+```
+
+### Network Compression Analysis
+
+How much simpler is the community network compared to the original?
+
+```{r compression_analysis}
+# Calculate compression metrics
+compression_df <- data.frame(
+  solution = seq_len(n_solutions),
+  original_nodes = vcount(karate_graph),
+  community_nodes = sapply(community_networks, vcount),
+  compression_ratio = round(sapply(community_networks, vcount) / vcount(karate_graph), 2),
+  original_edges = ecount(karate_graph),
+  community_edges = sapply(community_networks, ecount),
+  edge_reduction = round(1 - sapply(community_networks, ecount) / ecount(karate_graph), 2)
+)
+
+cat("\nNetwork Compression Through Community Aggregation:\n")
+print(compression_df)
+
+cat("\nInterpretation:\n")
+cat("- Compression ratio: smaller = more compression\n")
+cat("- Edge reduction: proportion of edges removed in meta-network\n")
+cat("- Community networks are simpler, higher-level representations\n")
+```
+
+## Key Takeaways
+
+1. **Multiple Valid Solutions**: Community detection often has multiple plausible partitions, not just one "correct" answer
+
+2. **Solution Space Exploration**: Running many trials reveals the diversity and stability of solutions
+
+3. **Uncertainty Quantification**: Posterior probabilities tell us which solutions are most reproducible
+
+4. **Meta-Network Analysis**: `make_community_network()` creates simplified views showing how communities relate, useful for:
+   - Understanding high-level structure
+   - Identifying boundary regions
+   - Comparing solutions
+   - Simplifying large networks
+
+5. **Different Perspectives**: Each solution may emphasize different structural aspects of the same network
+
+## Next Steps
+
+Try this workflow on your own networks! The approach is especially valuable for:
+- Large networks where visual inspection is difficult
+- Networks with ambiguous community structure
+- Situations requiring robust, reproducible results
+- Hierarchical or multi-scale analysis
+
+## Session Info
+
+```{r session_info}
+sessionInfo()
+```

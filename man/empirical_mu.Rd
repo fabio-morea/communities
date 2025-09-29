@@ -4,27 +4,38 @@
 \alias{empirical_mu}
 \title{Calculate the Empirical Mixing Parameter (Mu)}
 \usage{
-empirical_mu(g, community_labels)
+empirical_mu(graph, community_labels)
 }
 \arguments{
-\item{g}{An iGraph object representing the network. The edges of the graph should ideally be weighted, but if not, all edge weights are set to 1.0 by default.}
+\item{graph}{An igraph object representing the network. Edge weights will be
+set to 1.0 if not present.}
 
-\item{community_labels}{A vector of community labels, ordered according to the vertices in \code{g}. These labels define the community membership of each node in the graph.}
+\item{community_labels}{A vector of community labels, ordered according to
+the vertices in \code{graph}. These labels define the community membership
+of each node.}
 }
 \value{
-A numeric value representing the empirical mixing parameter (mu), which is the ratio of inter-community edges to the total number of edges.
+A numeric value in \link{0, 1} representing the empirical mixing parameter
+(μ), which is the ratio of inter-community edge weights to total edge weights.
+Higher values indicate more mixing between communities.
 }
 \description{
-The \code{empirical_mu} function calculates the mixing parameter "mu" for a given network, which represents the proportion of edges that exist between different communities. This parameter is often used in community detection algorithms to quantify how mixed or modular a network is.
+Calculates the mixing parameter μ (mu) for a given network, which represents
+the proportion of edges that connect nodes from different communities. This
+parameter quantifies how mixed or modular a network is.
 }
 \details{
-The function works by first ensuring that all edges have weights (defaulting to 1.0 if no weights are provided). It then calculates the number of edges that connect nodes from different communities (inter-community edges) and computes the proportion of such edges relative to the total number of edges in the graph.
+The function ensures all edges have weights (defaulting to 1.0 if missing),
+then calculates the proportion of edge weight that connects nodes from
+different communities relative to the total edge weight in the graph.
 }
 \examples{
-# Create a simple graph and calculate the mixing parameter
-g <- make_ring_of_cliques(3, 5)
-community_labels <- V(g)$community
-mu <- empirical_mu(g, community_labels)
+\dontrun{
+library(igraph)
+graph <- make_ring_of_cliques(3, 5)
+community_labels <- V(graph)$gt_community
+mu <- empirical_mu(graph, community_labels)
 print(mu)
+}
 
 }

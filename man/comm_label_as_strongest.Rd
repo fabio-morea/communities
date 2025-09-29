@@ -2,30 +2,56 @@
 % Please edit documentation in R/labels.R
 \name{comm_label_as_strongest}
 \alias{comm_label_as_strongest}
-\title{Assign Community Labels Based on the Strongest Node in Each Community
-Typically, community labels generated from community detection algorithms are arbitrary and unrelated to node identifiers.
-In some cases, it can be useful to assign more meaningful labels to communities that are easier to interpret. A practical choice is to label the community after its "strongest" node, i.e., the node with the highest strength (the sum of the weights of its connections).
-This approach provides a label that reflects the most central or influential node within each community, making the labels more interpretable.}
+\title{Assign Community Labels Based on the Strongest Node in Each Community}
 \usage{
-comm_label_as_strongest(g, comms)
+comm_label_as_strongest(graph, community_membership)
 }
 \arguments{
-\item{g}{An iGraph object representing the network. The graph should have weights for the edges if node strength is to be calculated based on weighted degrees.}
+\item{graph}{An igraph object representing the network. The graph should have
+weights for the edges if node strength is to be calculated based on weighted
+degrees.}
 
-\item{comms}{A community detection object (such as from \verb{cluster_*} functions in the iGraph package) that contains membership information, mapping each node to its community.}
+\item{community_membership}{A community detection object (such as from
+\code{cluster_*} functions in the igraph package) that contains membership
+information, mapping each node to its community.}
 }
 \value{
-A vector of community labels, where each node is assigned the label of the strongest node in its community. The labels take the form \code{"C_<node_name>"}, where \verb{<node_name>} is the name of the strongest node in that community.
+A vector of community labels, where each node is assigned the label
+of the strongest node in its community. The labels take the form
+\code{"C_<node_name>"}, where \code{<node_name>} is the name of the
+strongest node in that community.
 }
 \description{
-With the \code{comm_label_as_strongest}, each community is labeled with the identifier of its strongest node.
+Typically, community labels generated from community detection algorithms are
+arbitrary and unrelated to node identifiers. In some cases, it can be useful
+to assign more meaningful labels to communities that are easier to interpret.
+A practical choice is to label the community after its "strongest" node, i.e.,
+the node with the highest strength (the sum of the weights of its connections).
+This approach provides a label that reflects the most central or influential
+node within each community, making the labels more interpretable.
 }
 \details{
-The function works by calculating the node strength (the sum of weights of adjacent edges) for all nodes in the graph. For each community, the node with the highest strength is identified, and that node's name is used as the label for the entire community. This labeling helps to identify and label communities based on the most influential node within them.
+With \code{comm_label_as_strongest}, each community is labeled with the identifier
+of its strongest node.
+
+The function works by calculating the node strength (the sum of weights of
+adjacent edges) for all nodes in the graph. For each community, the node with
+the highest strength is identified, and that node's name is used as the label
+for the entire community. This labeling helps to identify and label communities
+based on the most influential node within them.
 }
 \examples{
-# Assuming 'g' is a graph and 'comms' is a community detection object
-community_labels <- comm_label_as_strongest(g, comms)
-print(community_labels)
+\dontrun{
+library(igraph)
+
+# Create a simple graph
+graph <- make_graph("Zachary")
+
+# Detect communities
+community_result <- cluster_louvain(graph)
+
+# Assign labels based on strongest nodes
+community_labels <- comm_label_as_strongest(graph, community_result)
+}
 
 }

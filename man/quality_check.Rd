@@ -2,55 +2,61 @@
 % Please edit documentation in R/quality.R
 \name{quality_check}
 \alias{quality_check}
-\title{Perform Quality Checks on a Set of Community Detection Solutions}
+\title{Perform Quality Checks on Community Detection Solutions}
 \usage{
-quality_check(g, ssp, mu_max = 0.5)
+quality_check(graph, solution_space_result, mu_max = 0.5)
 }
 \arguments{
-\item{g}{An iGraph object representing the network to be analyzed.}
+\item{graph}{An igraph object representing the network to be analyzed.}
 
-\item{sol_space}{A list-link object containing the solution space for community detection,
-produced by the 'solution_space()' function that is composed of two elements:
-\itemize{
-\item \code{M}: A matrix of community labels for each solution.
-\item \code{data}: A dataframe where each row represents a solution, and columns will be added for
-computed metrics like \code{k}, \code{mod}, \code{mu}, \code{int_conn}, and \code{valid}.
-}}
+\item{solution_space_result}{A list object from \code{solutions_space_DM()}
+containing \code{partitions} (matrix of community labels for each solution).}
+
+\item{mu_max}{Numeric. Maximum acceptable mixing parameter value (default: 0.5).
+Solutions with μ > mu_max are flagged as invalid.}
 }
 \value{
-The \code{sol_space} object with additional columns in \code{data}:
-\itemize{
-\item \code{k}: The number of unique communities in each solution.
-\item \code{mod}: The modularity score for each solution.
-\item \code{mu}: The empirical mixing parameter for each solution.
-\item \code{int_conn}: The number of connected components within each community.
-\item \code{valid}: A boolean value indicating whether the solution is valid (\code{TRUE}) or invalid (\code{FALSE}), based on a set of criteria.
+A tibble with one row per solution containing:
+\describe{
+\item{\code{solution_id}}{Solution identifier (1 to n_solutions)}
+\item{\code{k}}{Number of unique communities}
+\item{\code{modularity}}{Newman's modularity score}
+\item{\code{mu}}{Empirical mixing parameter}
+\item{\code{int_conn}}{Whether all communities are internally connected}
+\item{\code{valid}}{Overall validity flag (TRUE/FALSE)}
+\item{\code{reason}}{Explanation when valid = FALSE}
 }
 }
 \description{
-The \code{quality_check} function evaluates the quality of a set of community detection solutions
-stored in the \code{sol_space} object. The function computes various metrics, including
-the number of communities, modularity, mixing parameter (mu), and internal connectivity.
-It also flags solutions as valid or invalid based on certain thresholds.
+Evaluates the quality of community detection solutions by computing multiple
+metrics including number of communities, modularity, mixing parameter, and
+internal connectivity. Flags solutions as valid or invalid based on quality
+criteria.
 }
 \details{
-This function assesses the quality of each community detection solution in the solution space by calculating:
+Quality assessment includes:
 \itemize{
-\item The number of unique communities (\code{k}).
-\item The modularity score (\code{mod}), which measures the strength of community structure.
-\item The mixing parameter (\code{mu}), indicating the proportion of inter-community edges.
-\item A flag to highlight Whether communities are internally connected (\code{int_conn}).
-\item A flag to signal the validity of each solution. A solution is not valid if any of the following condition applies:
-\itemize{
-\item \code{mu > 0.5}: If the mixing parameter exceeds 0.5, the solution is marked as invalid.
-\item \code{k == 1}: If there is only one community, the solution is marked as invalid.
-\item \code{int_conn > 1}: If any community has more than one connected component, the solution is marked as invalid.
+\item{Number of communities (k)}
+\item{Modularity score (higher is better)}
+\item{Mixing parameter μ (should be ≤ mu_max)}
+\item{Internal connectivity (all communities should be connected)}
 }
+
+Validity criteria (all must be satisfied):
+\itemize{
+\item{μ ≤ mu_max}
+\item{k > 1 (more than one community)}
+\item{All communities are internally connected}
+\item{No missing metric values}
 }
 }
 \examples{
-# Assuming 'g' is a graph and 'sol_space' contains community detection results
-sol_space_checked <- quality_check(g, sol_space)
-print(sol_space_checked$data)
+\dontrun{
+library(igraph)
+graph <- make_ring_of_cliques(4, 5)
+solution_space_result <- solutions_space_DM(graph, n_trials = 50)
+quality_results <- quality_check(graph, solution_space_result)
+print(quality_results)
+}
 
 }

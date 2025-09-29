@@ -2,31 +2,40 @@
 % Please edit documentation in R/visualization.R
 \name{plot_sol_space}
 \alias{plot_sol_space}
-\title{Plot the Solution Space of Community Detection Results}
+\title{Plot Solution Space Diagnostics}
 \usage{
 plot_sol_space(sol_space, qc)
 }
 \arguments{
-\item{sol_space}{A dataframe produced by the \code{explore_solution_space} function. The dataframe should contain
-data on community partitions and relevant statistics such as cumulative sums, medians, and upper/lower bounds
-for each solution.}
+\item{sol_space}{List output from \code{solutions_space_DM()}, containing:
+\itemize{
+\item \code{partitions}: Matrix of community assignments
+\item \code{probabilities}: Data frame with posterior estimates
+}}
+
+\item{qc}{Data frame from \code{quality_check()} with \code{valid} column
+indicating solution validity.}
 }
 \value{
-A list of up to 4 plots:
+List containing up to 4 ggplot objects:
 \itemize{
-\item \code{pl1}: A plot showing the median probability of solutions, with error bars indicating credible intervals.
-\item \code{pl2}: A visualization of the solution space, showing the range of valid and non-valid solutions.
-\item \code{pl3}: A scatter plot showing the distribution of community sizes for each solution.
-\item \code{pl4}: A plot representing the similarity between the solutions (empty if solution space contains only one solution).
+\item \code{pl1}: Posterior probabilities with credible intervals
+\item \code{pl2}: Solution space visualization with validity markers
+\item \code{pl3}: Community size distributions per solution
+\item \code{pl4}: Pairwise solution similarity heatmap (NA if only 1 solution)
 }
 }
 \description{
-The \code{plot_sol_space} function generates a series of plots to visually explore the solution space
-derived from community detection analysis. It provides insights into the distribution of solutions,
-their internal consistency, and similarities between different partitions.
+Generates diagnostic plots for exploring community detection solution spaces.
+Visualizes posterior probabilities, credible intervals, community size
+distributions, and inter-solution similarity.
 }
 \examples{
-# Assuming 'sol_space' is a dataframe produced by 'explore_solution_space'
-plot_list <- plot_sol_space(sol_space)
+\dontrun{
+ssp <- solutions_space_DM(g, n_trials = 100)
+qc <- quality_check(g, ssp)
+plots <- plot_sol_space(ssp, qc)
+print(plots$pl1)
+}
 
 }

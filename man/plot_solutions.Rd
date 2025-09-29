@@ -2,7 +2,7 @@
 % Please edit documentation in R/visualization.R
 \name{plot_solutions}
 \alias{plot_solutions}
-\title{Plot Multiple Solutions from a Solution Space}
+\title{Plot Multiple Solutions from Solution Space}
 \usage{
 plot_solutions(
   g,
@@ -18,33 +18,50 @@ plot_solutions(
 )
 }
 \arguments{
-\item{g}{An \code{igraph} object representing the network graph.}
+\item{g}{An igraph object representing the network.}
 
-\item{device}{A string specifying the output device. Possible values are "screen" (default) and "png".}
-
-\item{filename}{A string specifying the file name for saving the plot if \code{device = "png"}. Default is \code{NULL}.}
-
-\item{width}{Width of the PNG image in pixels. Default is 1600.}
-
-\item{height}{Height of the PNG image in pixels. Default is 1600.}
-
-\item{res}{Resolution of the PNG image in DPI. Default is 300.}
-
-\item{sol_space}{A list containing the solution space. It should include:
-\describe{
-\item{data}{A matrix with rows corresponding to different solutions.}
-\item{M}{A matrix where each column corresponds to the membership of nodes for a given solution.}
+\item{ssp}{List output from \code{solutions_space_DM()}, containing:
+\itemize{
+\item \code{partitions}: Matrix of community assignments
+\item \code{probabilities}: Data frame with posterior probabilities
 }}
+
+\item{add_node_labels}{Logical. Display node names? Default: TRUE.}
+
+\item{add_prob_labels}{Logical. Display solution probabilities? Default: TRUE.}
+
+\item{add_title}{Logical. Display solution numbers as titles? Default: TRUE.}
+
+\item{device}{Character. Output device: "screen" or "png". Default: "screen".}
+
+\item{filename}{Character. File path if device = "png". Default: NULL.}
+
+\item{width}{Numeric. PNG width in pixels. Default: 1600.}
+
+\item{height}{Numeric. PNG height in pixels. Default: 1600.}
+
+\item{res}{Numeric. PNG resolution in DPI. Default: 300.}
 }
 \value{
-NULL. This function is called for creating plots.
+NULL (called for side effects: plotting).
 }
 \description{
-The function plot_all_solutions plots all the the solutions from a given solution space on a graph using a grid layout.
-Each plot highlights a different solution with communities highlighted in red.
+Creates a grid of network visualizations showing different community detection
+solutions. Each panel displays the same network with communities highlighted
+according to one solution.
+}
+\details{
+Uses Fruchterman-Reingold layout with consistent node positions
+across all panels. Communities are highlighted with semi-transparent
+colored regions.
 }
 \examples{
-# Example usage (assume `g` is an igraph object and `sol_space` is defined):
-# plot_solutions(g, sol_space)
+\dontrun{
+g <- make_ring(10)
+ssp <- solutions_space_DM(g, n_trials = 50)
+plot_solutions(g, ssp)
+# Save to file:
+plot_solutions(g, ssp, device = "png", filename = "solutions.png")
+}
 
 }

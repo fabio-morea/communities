@@ -2,13 +2,7 @@
 % Please edit documentation in R/ring_of_cliques.R
 \name{make_ring_of_cliques}
 \alias{make_ring_of_cliques}
-\title{Ring of Cliques (RC, RC_B, RC_C, RC_BC)
-\itemize{
-\item RC:    ring edges from c(k,1) to c(k+1,2)
-\item RC_B:  RC + bridge nodes: c(k,2) -- b_k -- c(k+1,3)
-\item RC_C:  RC + center connected to c(k,1)
-\item RC_BC: RC + bridges + center
-}}
+\title{Generate Ring of Cliques Benchmark Networks}
 \usage{
 make_ring_of_cliques(
   n_cliques,
@@ -18,23 +12,83 @@ make_ring_of_cliques(
 )
 }
 \arguments{
-\item{n_cliques}{integer >= 2}
+\item{n_cliques}{Integer. Number of cliques in the ring (must be ≥ 2).}
 
-\item{clique_size}{integer >= 3 (needs nodes 1,2,3)}
+\item{clique_size}{Integer. Number of nodes in each clique (must be ≥ 3).}
 
-\item{variant}{one of "RC","RC_B","RC_C","RC_BC"}
+\item{variant}{Character. Network variant to generate:
+\itemize{
+\item{\code{"RC"}}{Basic ring: cliques connected in a ring}
+\item{\code{"RC+B"}}{Ring + bridge nodes between cliques}
+\item{\code{"RC+C"}}{Ring + central hub connected to all cliques}
+\item{\code{"RC+BC"}}{Ring + bridges + central hub}
+}
+Legacy names (\code{"RC_B"}, \code{"RC_C"}, \code{"RC_BC"}) are also accepted.}
 
-\item{set_names}{logical, add readable names}
+\item{set_names}{Logical. If TRUE, assigns readable names to vertices
+(default: TRUE).}
 }
 \value{
-igraph
+An igraph object with vertex and edge attributes:
+\describe{
+\item{Vertex attributes:}{
+\itemize{
+\item{\code{clique_id}}{Clique membership (NA for bridges/center)}
+\item{\code{within_id}}{Position within clique (1 to clique_size)}
+\item{\code{gt_community}}{Ground truth community label}
+\item{\code{gt_label}}{Human-readable community label}
+\item{\code{role}}{Node type: "clique", "bridge", or "central"}
+\item{\code{name}}{Vertex name (if set_names = TRUE)}
+}
+}
+\item{Edge attributes:}{
+\itemize{
+\item{\code{edge_type}}{Type: "intra_clique", "ring_edge", "bridge_edge",
+or "center_spoke"}
+}
+}
+}
 }
 \description{
-Ring of Cliques (RC, RC_B, RC_C, RC_BC)
-\itemize{
-\item RC:    ring edges from c(k,1) to c(k+1,2)
-\item RC_B:  RC + bridge nodes: c(k,2) -- b_k -- c(k+1,3)
-\item RC_C:  RC + center connected to c(k,1)
-\item RC_BC: RC + bridges + center
+Creates synthetic benchmark networks consisting of cliques arranged in a ring
+topology, with optional bridge nodes and/or a central hub. These networks are
+useful for testing community detection algorithms as they have known ground
+truth community structure.
 }
+\details{
+Network variants:
+\itemize{
+\item{\strong{RC}}: Basic ring where clique k node 1 connects to clique k+1 node 2
+\item{\strong{RC+B}}: Adds bridge nodes between cliques: k→bridge_k→(k+1)
+\item{\strong{RC+C}}: Adds central hub connected to node 3 of each clique
+\item{\strong{RC+BC}}: Combines both bridges and central hub
+}
+
+Ground truth communities: Each clique forms one community. Bridge nodes and
+the central node have gt_community = 0 (outliers).
+}
+\examples{
+\dontrun{
+library(igraph)
+
+# Basic ring of 4 cliques, each with 5 nodes
+graph_basic <- make_ring_of_cliques(
+  n_cliques = 4, 
+  clique_size = 5, 
+  variant = "RC"
+)
+
+# Ring with central hub (creates outlier node)
+graph_with_center <- make_ring_of_cliques(
+  n_cliques = 4, 
+  clique_size = 5, 
+  variant = "RC+C"
+)
+
+# Visualize ground truth communities
+plot(graph_with_center, 
+     vertex.color = V(graph_with_center)$gt_community,
+     vertex.label = NA)
+}
+
 }
