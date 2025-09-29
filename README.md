@@ -18,9 +18,9 @@ managing input ordering bias, and identifying outlier nodes through
 repeated trials with controlled randomization.
 
 For detailed examples and usage, see the vignettes: - [Introduction to
-communities](https://fabio-morea.github.io/communities/vignette/.html) -
+communities](https://github.com/fabio-morea/communities/blob/main/vignette/getting-started.html) -
 [Exploring the Solution
-Space](https://fabio-morea.github.io/communities/vignette/vignette-karate.html)
+Space](https://github.com/fabio-morea/communities/blob/main/vignette/vignette-karate.html)
 
 ## **Key Features**
 
