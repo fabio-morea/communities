@@ -16,6 +16,9 @@ implements a Bayesian framework for assessing algorithm stability,
 managing input ordering bias, and identifying outliers through repeated
 trials.
 
+A Python implementation of this package is available at [communities-py](https://github.com/fabio-morea/communities-py/)
+
+
 ## **Key Features**
 
 ### **Solution Space Exploration**
