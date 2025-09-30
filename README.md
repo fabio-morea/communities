@@ -5,9 +5,8 @@ communities
 
 [![License: CC BY 4.0](https://img.shields.io/badge/License-CC_BY_4.0-lightgrey.svg)](https://creativecommons.org/licenses/by/4.0/)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.13594209.svg)](https://doi.org/10.5281/zenodo.13594209)
-[![Lifecycle:
+[![Lifecycle:experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 ![R](https://img.shields.io/badge/language-R-blue?logo=r)
-experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 <!-- badges: end -->
 
 The `communities` package addresses critical reproducibility issues in
