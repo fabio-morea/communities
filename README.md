@@ -313,8 +313,7 @@ If you use this package in your research, please cite:
 
 ``` bibtex
 @misc{communities2024,
-  title = {A Comprehensive Framework for Solution Space 
-           Exploration in Community Detection},
+  title = {A Comprehensive Framework for Solution Space Exploration in Community Detection},
   author = {Morea, Fabio and De Stefano, Domenico},
   year = {2024},
   url = {https://github.com/fabio-morea/communities}, 
@@ -326,11 +325,10 @@ The theoretical framework underlying this package is described in:
 
 ``` bibtex
 @article{morea2024comprehensive,
-  title = A Comprehensive Framework for Solution Space Exploration in Community Detection},
+  title = {A Comprehensive Framework for Solution Space Exploration in Community Detection},
   author = {Morea, Fabio and De Stefano, Domenico},
   year = {2024},
-  journal = {Under Review},
-  note = {Preprint available at: https://zenodo.org/records/13825471}
+  journal = {Under Review} 
 }
 ```
 
